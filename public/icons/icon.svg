@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#15803d" />
+      <stop offset="50%" stop-color="#16a34a" />
+      <stop offset="100%" stop-color="#052e16" />
+    </linearGradient>
+    <linearGradient id="leafGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#bef264" />
+      <stop offset="100%" stop-color="#22c55e" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#eab308" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.35" />
+    </filter>
+  </defs>
+
+  <!-- App Icon Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+
+  <!-- Subtle glow inner border -->
+  <rect x="12" y="12" width="488" height="488" rx="100" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6" />
+
+  <!-- Center Graphic Group with shadow -->
+  <g filter="url(#shadow)" transform="translate(0, -10)">
+    <!-- Sprout / Plant Left Leaf -->
+    <path d="M256 240 C210 160 140 160 120 220 C100 280 180 320 256 310 Z" fill="url(#leafGrad)" />
+    <!-- Sprout / Plant Right Leaf -->
+    <path d="M256 240 C302 140 380 140 400 200 C420 260 340 310 256 310 Z" fill="url(#leafGrad)" />
+    <!-- Golden Stem and Central Bud -->
+    <path d="M256 330 Q256 230 256 150 C265 140 270 170 256 330 Z" fill="url(#goldGrad)" />
+    <circle cx="256" cy="140" r="18" fill="url(#goldGrad)" />
+
+    <!-- Marketplace Basket Arc Motif (stylized bottom) -->
+    <path d="M160 330 C180 390 332 390 352 330 C320 370 192 370 160 330 Z" fill="url(#goldGrad)" opacity="0.95" />
+    <path d="M185 360 L200 410 C210 435 302 435 312 410 L327 360 C305 385 207 385 185 360 Z" fill="#ffffff" opacity="0.9" />
+  </g>
+
+  <!-- FarmiQ text badge -->
+  <text x="256" y="472" text-anchor="middle" font-family="'Plus Jakarta Sans', 'Segoe UI', sans-serif" font-weight="800" font-size="44" fill="#ffffff" letter-spacing="3">FARMIQ</text>
+</svg>

@@ -1,0 +1,6 @@
+{
+  "name": "FarmiQ — Farmer-to-Customer Marketplace",
+  "description": "Direct agricultural marketplace connecting farmers and customers with live fluctuating mandi rates, real-time sync, dynamic pricing, storage booking, live tracking, and Gemini AI assistant.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
