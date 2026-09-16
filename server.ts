@@ -38,6 +38,7 @@ const defaultState: DBState = {
       full_name: "FarmiQ System Admin",
       email: "admin@farmiq.com",
       phone: "+91 80011 22334",
+      password: "farmiq",
       role: "admin",
       location: "FarmiQ HQ, Pune",
       created_at: new Date().toISOString()
@@ -190,6 +191,7 @@ if (adminUserRecord) {
     full_name: "FarmiQ System Admin",
     email: "admin@farmiq.com",
     phone: "+91 80011 22334",
+    password: "farmiq",
     role: "admin",
     location: "FarmiQ HQ, Pune",
     created_at: new Date().toISOString()
@@ -398,6 +400,7 @@ async function startServer() {
       full_name,
       email,
       phone: phone || "+91 98000 00000",
+      password: password ? String(password).trim() : "farmiq123",
       role: role || "customer",
       farm_name: farm_name || null,
       location: location || resolvedAddress,
@@ -507,8 +510,15 @@ async function startServer() {
     }) : null);
 
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid email or password" });
     }
+
+    // STRICT PASSWORD VERIFICATION FOR ALL USERS:
+    const expectedPassword = user.password || (user.role === 'farmer' ? 'farmer123' : 'customer123');
+    if (cleanPassword !== expectedPassword) {
+      return res.status(401).json({ error: "Invalid password. Please check your password and try again." });
+    }
+
     // Protect against non-admin email having admin role
     if (user.role === "admin") {
       if (user.email.toLowerCase() !== "admin@farmiq.com" || cleanPassword !== "farmiq") {
@@ -533,8 +543,12 @@ async function startServer() {
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     const {
       full_name, email, phone, location, delivery_address,
-      farm_name, company_name, upi_id, upi_name, pincode, latitude, longitude
+      farm_name, company_name, upi_id, upi_name, pincode, latitude, longitude, password
     } = req.body;
+
+    if (password !== undefined && String(password).trim()) {
+      user.password = String(password).trim();
+    }
 
     if (full_name !== undefined && String(full_name).trim()) {
       const oldName = user.full_name;
@@ -604,6 +618,7 @@ async function startServer() {
         full_name: user.full_name,
         email: user.email,
         phone: user.phone,
+        password: user.password,
         location: user.location,
         delivery_address: user.delivery_address,
         farm_name: user.farm_name,
