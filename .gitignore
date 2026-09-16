@@ -9,3 +9,4 @@ data/farmiq.db*
 *.log
 .env*
 !.env.example
+.vscode/

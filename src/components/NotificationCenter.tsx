@@ -15,6 +15,9 @@ interface NotificationCenterProps {
   onOpenInvoice?: (orderId: number) => void;
   onPayNow?: (orderId: number) => void;
   onTrackOrder?: (orderId: number) => void;
+  isOpenControlled?: boolean;
+  onToggleControlled?: (open: boolean) => void;
+  onUnreadCountChange?: (count: number) => void;
 }
 
 // Gentle Web Audio API synthesizer for instant pleasant chime
@@ -67,10 +70,24 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
   onOpenInvoice,
   onPayNow,
   onTrackOrder,
+  isOpenControlled,
+  onToggleControlled,
+  onUnreadCountChange,
 }) => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [paidOrderIds, setPaidOrderIds] = useState<Set<number>>(new Set());
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  
+  const isControlled = typeof isOpenControlled === 'boolean';
+  const isOpen = isControlled ? isOpenControlled : internalIsOpen;
+  const setIsOpen = (nextVal: boolean) => {
+    if (isControlled && onToggleControlled) {
+      onToggleControlled(nextVal);
+    } else {
+      setInternalIsOpen(nextVal);
+    }
+  };
+
   const [activePopupNotif, setActivePopupNotif] = useState<NotificationItem | null>(null);
   const [isActioning, setIsActioning] = useState(false);
   const seenIdsRef = useRef<Set<string>>(new Set());
@@ -204,6 +221,12 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   const unreadCount = notifications.filter((n) => n.status === 'UNREAD').length;
 
+  useEffect(() => {
+    if (onUnreadCountChange) {
+      onUnreadCountChange(unreadCount);
+    }
+  }, [unreadCount, onUnreadCountChange]);
+
   const handleMarkRead = async (id: string) => {
     try {
       await api.markNotificationRead(id);
@@ -279,8 +302,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
 
   return (
     <>
-      {/* Navbar Notification Bell */}
-      <div className="relative">
+      {/* Navbar Notification Bell - Hidden on mobile, visible on desktop */}
+      <div className="relative hidden md:block">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -294,9 +317,15 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
             </span>
           )}
         </button>
+      </div>
 
-        {/* Dropdown Drawer */}
-        {isOpen && (
+      {/* Dropdown Drawer */}
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-2xs z-40 sm:hidden" 
+            onClick={() => setIsOpen(false)} 
+          />
           <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full mt-2 w-auto sm:w-96 max-w-[calc(100vw-24px)] bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden z-50 flex flex-col max-h-[85vh]">
             <div className="px-4 py-3 border-b border-stone-100 bg-stone-50 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -472,8 +501,8 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
               )}
             </div>
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {/* Real-time High-Priority Alert Modal Popup rendered via portal directly onto document.body */}
       {activePopupNotif &&

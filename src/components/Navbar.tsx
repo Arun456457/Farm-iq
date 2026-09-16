@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sprout, RefreshCw, Globe, LogOut, ShieldAlert, Package, ShoppingBag, 
   TrendingUp, Warehouse, FileText, User as UserIcon, MapPin, Download, 
-  Menu, X, ChevronRight, CheckCircle2, Phone
+  Menu, X, ChevronRight, CheckCircle2, Phone, Bell
 } from 'lucide-react';
 import { User, LanguageCode } from '../types';
 import { translations } from '../translations';
@@ -50,6 +50,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const t = translations[language];
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
+  const [notifCount, setNotifCount] = useState<number>(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -207,28 +209,27 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* 3. Right: Location, Install App, Notifications, Language, User profile & THREE LINES MENU at corner */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Install App button ("install option above") */}
+            {/* Install App button - Desktop only, on mobile it is under ☰ */}
             {onOpenInstallModal && (
               <button
                 id="btn-install-app-header"
                 type="button"
                 onClick={onOpenInstallModal}
                 title="Install FarmiQ on Desktop or Mobile"
-                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-[11px] sm:text-xs font-bold shadow-xs transition cursor-pointer shrink-0 active:scale-95"
+                className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-xs transition cursor-pointer shrink-0 active:scale-95"
               >
                 <Download className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Install FarmiQ</span>
-                <span className="sm:hidden">Install</span>
+                <span>Install FarmiQ</span>
               </button>
             )}
 
-            {/* Location button */}
+            {/* Location button - Visible on mobile & desktop, max-w constrained on mobile so it never overflows */}
             {user && onOpenLocationPicker && (
               <button
                 type="button"
                 onClick={onOpenLocationPicker}
                 title="Change delivery or farm location on interactive map"
-                className="flex items-center gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-stone-50 hover:bg-emerald-50 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 transition text-xs font-semibold cursor-pointer max-w-[110px] sm:max-w-[160px] shrink-0 shadow-2xs"
+                className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-stone-50 hover:bg-emerald-50 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 transition text-xs font-semibold cursor-pointer max-w-[100px] xs:max-w-[125px] sm:max-w-[160px] shrink shadow-2xs"
               >
                 <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span className="truncate text-[11px]">
@@ -237,7 +238,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </button>
             )}
 
-            {/* Notification Center */}
+            {/* Notification Center - Bell icon on desktop, drawer trigger under ☰ on mobile */}
             {user && (
               <NotificationCenter
                 user={user}
@@ -246,12 +247,15 @@ export const Navbar: React.FC<NavbarProps> = ({
                 onOpenInvoice={onOpenInvoice}
                 onPayNow={onPayNow}
                 onTrackOrder={onTrackOrder}
+                isOpenControlled={isNotifOpen}
+                onToggleControlled={(open) => setIsNotifOpen(open)}
+                onUnreadCountChange={(count) => setNotifCount(count)}
               />
             )}
 
-            {/* Language Switcher */}
-            <div className="relative flex items-center shrink-0">
-              <Globe className="w-3 h-3 sm:w-3.5 sm:h-3.5 absolute left-1.5 sm:left-2 text-stone-500 pointer-events-none" />
+            {/* Language Switcher - Desktop only, on mobile it is under ☰ */}
+            <div className="relative hidden md:flex items-center shrink-0">
+              <Globe className="w-3.5 h-3.5 absolute left-2 text-stone-500 pointer-events-none" />
               <select
                 id="language-selector"
                 value={language}
@@ -260,7 +264,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   setLanguage(newLang);
                   triggerFullPageTranslation(newLang);
                 }}
-                className="pl-5 sm:pl-6.5 pr-1 sm:pr-1.5 py-1 text-[11px] sm:text-xs font-semibold bg-stone-50 border border-stone-200 rounded-lg text-stone-700 outline-none hover:bg-stone-100 transition cursor-pointer"
+                className="pl-6.5 pr-1.5 py-1 text-xs font-semibold bg-stone-50 border border-stone-200 rounded-lg text-stone-700 outline-none hover:bg-stone-100 transition cursor-pointer"
               >
                 <option value="en">EN</option>
                 <option value="hi">HI</option>
@@ -269,7 +273,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               </select>
             </div>
 
-            {/* User Profile */}
+            {/* User Profile / Account - Avatar circle always visible on mobile & desktop */}
             {user ? (
               <button 
                 type="button"
@@ -281,7 +285,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 title={`${user.full_name} (${user.role}) - Click to edit profile`}
               >
                 <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0 ring-2 ring-emerald-100">
-                  {user.full_name.charAt(0).toUpperCase()}
+                  {user.full_name ? user.full_name.charAt(0).toUpperCase() : 'U'}
                 </div>
                 <div className="hidden xl:flex items-center gap-1.5 shrink-0">
                   <span className="text-xs font-bold text-stone-800 whitespace-nowrap max-w-[90px] xl:max-w-[120px] truncate">
@@ -313,13 +317,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* 4. AT CORNER: THREE LINES BUTTON (☰) WITH DROPDOWN MENU */}
             {user && (
-              <div className="relative" ref={menuRef}>
+              <div className="relative shrink-0" ref={menuRef}>
                 <button
                   id="btn-three-lines-menu"
                   type="button"
                   onClick={toggleMenu}
-                  title={isMenuOpen ? "Close FarmiQ Menu" : "Open FarmiQ Menu: Digital Contracts, Mandi Rates, Storage & Logout"}
-                  className={`flex items-center gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0 shadow-2xs active:scale-95 ml-0.5 border ${
+                  title={isMenuOpen ? "Close FarmiQ Menu" : "Open FarmiQ Menu: All Options & Logout"}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-xl transition cursor-pointer shrink-0 shadow-2xs active:scale-95 ml-0.5 border ${
                     isMenuOpen 
                       ? 'bg-emerald-100 text-emerald-950 border-emerald-500 ring-2 ring-emerald-200' 
                       : 'bg-stone-100 hover:bg-emerald-50 text-stone-800 hover:text-emerald-900 border-stone-200'
@@ -337,14 +341,14 @@ export const Navbar: React.FC<NavbarProps> = ({
                   </span>
                 </button>
 
-                {/* DROPDOWN MENU - DROPS DOWN FROM THE ☰ BUTTON */}
+                {/* DROPDOWN MENU - DROPS DOWN FROM THE ☰ BUTTON (MOBILE-SAFE POSITIONING) */}
                 {isMenuOpen && (
                   <div 
                     id="farmiq-dropdown-menu"
-                    className="absolute right-0 top-full mt-2 w-72 sm:w-84 max-w-[92vw] bg-white rounded-2xl shadow-2xl border border-stone-200/95 z-50 overflow-hidden text-stone-900 animate-in fade-in zoom-in-95 duration-150"
+                    className="fixed sm:absolute top-16 sm:top-full right-2 sm:right-0 mt-1 sm:mt-2 w-[calc(100vw-16px)] sm:w-84 max-w-sm bg-white rounded-2xl shadow-2xl border border-stone-200/95 z-50 overflow-hidden text-stone-900 animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[calc(100vh-80px)]"
                   >
                     {/* Top: Profile Card with Edit Profile */}
-                    <div className="p-3 bg-gradient-to-br from-emerald-50/90 to-teal-50/80 border-b border-stone-200/90">
+                    <div className="p-3 bg-gradient-to-br from-emerald-50/90 to-teal-50/80 border-b border-stone-200/90 shrink-0">
                       <div className="flex items-center justify-between gap-2 mb-1.5">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-bold text-sm shadow-2xs shrink-0 ring-2 ring-emerald-200">
@@ -386,7 +390,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     {/* Menu Options List - Stood one by one vertically */}
-                    <div className="p-1.5 space-y-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+                    <div className="p-1.5 space-y-1 overflow-y-auto flex-1">
                       {/* Mobile Primary Views */}
                       {user.role === 'farmer' && (
                         <div className="contents md:hidden">
@@ -466,6 +470,67 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </div>
                       )}
 
+                      {user.role === 'buyer' && (
+                        <div className="contents md:hidden">
+                          <button
+                            id="menu-item-buyer-orders"
+                            type="button"
+                            onClick={() => {
+                              handleSelectTab('buyer-orders');
+                              setIsMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition cursor-pointer ${
+                              currentTab === 'buyer-orders' ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200' : 'hover:bg-stone-50 text-stone-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
+                              <span className="text-xs">Buyer Orders</span>
+                            </div>
+                            {currentTab === 'buyer-orders' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                          </button>
+                          <button
+                            id="menu-item-buyer-fpo"
+                            type="button"
+                            onClick={() => {
+                              handleSelectTab('buyer-fpo');
+                              setIsMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition cursor-pointer ${
+                              currentTab === 'buyer-fpo' ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200' : 'hover:bg-stone-50 text-stone-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <Package className="w-4 h-4 text-emerald-700 shrink-0" />
+                              <span className="text-xs">Procure FPO Lots</span>
+                            </div>
+                            {currentTab === 'buyer-fpo' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                          </button>
+                        </div>
+                      )}
+
+                      {user.role === 'admin' && (
+                        <div className="contents md:hidden">
+                          <button
+                            id="menu-item-admin-overview"
+                            type="button"
+                            onClick={() => {
+                              handleSelectTab('admin-overview');
+                              setIsMenuOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition cursor-pointer ${
+                              currentTab === 'admin-overview' ? 'bg-emerald-50 text-emerald-900 font-bold border border-emerald-200' : 'hover:bg-stone-50 text-stone-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                              <span className="text-xs">{t.adminDashboard}</span>
+                            </div>
+                            {currentTab === 'admin-overview' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                          </button>
+                        </div>
+                      )}
+
                       {/* 1. Digital Contracts */}
                       <button
                         id="menu-item-contracts"
@@ -535,6 +600,63 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </span>
                       </button>
 
+                      {/* Notifications on Mobile */}
+                      <button
+                        id="menu-item-notifications"
+                        type="button"
+                        onClick={() => {
+                          setIsMenuOpen(false);
+                          setIsNotifOpen(true);
+                        }}
+                        className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-emerald-50/60 text-stone-700 font-medium transition cursor-pointer md:hidden"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Bell className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span className="text-xs truncate">Notifications & Alerts</span>
+                        </div>
+                        {notifCount > 0 ? (
+                          <span className="text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shrink-0 animate-pulse">
+                            {notifCount} new
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-semibold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded shrink-0">
+                            0 alerts
+                          </span>
+                        )}
+                      </button>
+
+                      {/* Mobile Language Switcher */}
+                      <div className="md:hidden px-3 py-2 rounded-xl bg-stone-50/80 border border-stone-200/80 my-1">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <Globe className="w-4 h-4 text-emerald-700" />
+                            <span className="text-xs font-bold text-stone-800">Language / भाषा</span>
+                          </div>
+                          <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
+                            {language === 'en' ? 'English' : language === 'hi' ? 'हिंदी' : language === 'te' ? 'తెలుగు' : 'मराठी'}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1 pt-0.5">
+                          {(['en', 'hi', 'te', 'mr'] as LanguageCode[]).map((lang) => (
+                            <button
+                              key={lang}
+                              type="button"
+                              onClick={() => {
+                                setLanguage(lang);
+                                triggerFullPageTranslation(lang);
+                              }}
+                              className={`py-1.5 text-[11px] font-bold rounded-lg transition text-center cursor-pointer ${
+                                language === lang
+                                  ? 'bg-emerald-700 text-white shadow-xs'
+                                  : 'bg-white text-stone-700 hover:bg-stone-100 border border-stone-200'
+                              }`}
+                            >
+                              {lang === 'en' ? 'EN' : lang === 'hi' ? 'हिंदी' : lang === 'te' ? 'తెలుగు' : 'मराठी'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* 4. Change Location */}
                       {onOpenLocationPicker && (
                         <button
@@ -583,7 +705,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <Download className="w-4 h-4 text-emerald-700 shrink-0" />
-                            <span className="text-xs truncate">Install FarmiQ</span>
+                            <span className="text-xs truncate">Install FarmiQ App</span>
                           </div>
                           <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
                             1-Click PWA
@@ -591,9 +713,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                         </button>
                       )}
 
-                      {/* Divider */}
+                      {/* Divider & Logout Option (LAST item) */}
                       <div className="border-t border-stone-200 my-1 pt-1">
-                        {/* 7. Logout Option (LAST item) */}
                         <button
                           id="btn-menu-logout"
                           type="button"
@@ -601,13 +722,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                             setIsMenuOpen(false);
                             onLogout();
                           }}
-                          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left hover:bg-red-50 text-red-700 font-semibold transition cursor-pointer active:scale-98"
+                          className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left bg-red-50 hover:bg-red-100 text-red-700 font-bold transition cursor-pointer active:scale-98 border border-red-200"
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <LogOut className="w-4 h-4 text-red-600 shrink-0" />
                             <span className="text-xs truncate">Logout from FarmiQ</span>
                           </div>
-                          <span className="text-[9px] font-bold text-white bg-red-600 px-2 py-0.5 rounded shadow-2xs shrink-0">
+                          <span className="text-[9px] font-black text-white bg-red-600 px-2.5 py-1 rounded shadow-2xs shrink-0 tracking-wider">
                             SIGN OUT
                           </span>
                         </button>
