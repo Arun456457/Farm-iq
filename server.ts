@@ -1,6 +1,5 @@
 import express from "express";
 import path from "path";
-import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
@@ -9,13 +8,12 @@ import { mandiMarkets, initialMandiRates, findNearestMandi, getMandiAreas, haver
 
 dotenv.config();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const PORT = 3000;
+const projectRoot = process.cwd();
+const PORT = Number(process.env.PORT) || 3000;
 
 // In-memory + file-backed robust store to ensure instant response and multi-device sync
-const DATA_FILE = path.join(__dirname, "data", "app_state.json");
-fs.mkdirSync(path.join(__dirname, "data"), { recursive: true });
+const DATA_FILE = path.join(projectRoot, "data", "app_state.json");
+fs.mkdirSync(path.join(projectRoot, "data"), { recursive: true });
 
 interface DBState {
   users: any[];
