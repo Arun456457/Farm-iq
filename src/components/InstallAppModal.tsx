@@ -36,6 +36,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
+          localStorage.setItem('farmiq_app_installed', 'true');
           if (onInstallSuccess) onInstallSuccess();
           onClose();
         }
@@ -162,7 +163,13 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             )}
 
             <button
-              onClick={onClose}
+              onClick={() => {
+                if (isIOS) {
+                  localStorage.setItem('farmiq_app_installed', 'true');
+                  if (onInstallSuccess) onInstallSuccess();
+                }
+                onClose();
+              }}
               className="py-3 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition cursor-pointer text-center"
             >
               {isIOS ? 'Got It, Close' : 'Maybe Later'}

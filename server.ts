@@ -116,17 +116,14 @@ function loadState(): DBState {
       if (!merged.notifications) merged.notifications = [];
       if (!merged.payments) merged.payments = [];
 
-      // PURGE ALL DEMO FARMERS & SEEDED PRODUCTS
+      // Purge only legacy demo placeholder emails if present; never purge by numeric ID or name
       merged.users = (merged.users || []).filter((u: any) =>
-        ![1, 2, 107, 108, 109, 110, 111, 112].includes(u.id) &&
         !['farmer.patil@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.shinde@farmiq.in', 'sunita.jadhav@farmiq.in', 'ganesh.pawar@farmiq.in', 'nitin.more@farmiq.in'].includes(u.email?.toLowerCase())
       );
 
       merged.products = (merged.products || []).filter((p: any) =>
-        p.farmer_id !== 1 &&
-        ![1, 2, 3, 201, 202, 203, 204, 205, 206, 207, 208].includes(p.id) &&
-        ![107, 108, 109, 110, 112].includes(p.farmer_id) &&
-        !String(p.farmer_name).includes('Suresh')
+        !String(p.farmer_name || '').includes('Suresh') &&
+        p.farmer_name !== 'farmer.patil@farmiq.in'
       );
 
       // Clean demo FPO collectives & lots
@@ -415,50 +412,38 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: "25mb" }));
 
-  // Middleware to ensure all demo farmers and sample data are purged from in-memory state
-  app.use("/api", (req, res, next) => {
-    if (db) {
-      db.users = (db.users || []).filter(u =>
-        ![1, 2, 100, 101, 107, 108, 109, 110, 111, 112, 113, 114].includes(u.id) &&
-        !['farmer.patil@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.farmer@example.com', 'anita.customer@example.com'].includes(u.email?.toLowerCase()) &&
-        !String(u.full_name).toLowerCase().includes('ramesh') &&
-        !String(u.full_name).toLowerCase().includes('anita')
-      );
-      db.products = (db.products || []).filter(p =>
-        p.farmer_id !== 1 &&
-        ![1, 2, 3, 201, 202, 203, 204, 205, 206, 207, 208].includes(p.id) &&
-        !String(p.farmer_name).includes('Suresh')
-      );
-      db.lots = (db.lots || []).filter(l =>
-        l.farmer_id !== 1 && !String(l.farmer_name).includes('Suresh')
-      );
-      db.fpo_collectives = (db.fpo_collectives || []).filter(c =>
-        c.lead_farmer_id !== 1 && !String(c.lead_farmer_name).includes('Suresh')
-      );
-      db.orders = (db.orders || []).filter(o =>
-        o.customer_id !== 2 && o.farmer_id !== 1 &&
-        !String(o.farmer_name).includes('Suresh') && !String(o.customer_name).includes('Priya')
-      );
-      db.notifications = (db.notifications || []).filter(n =>
-        !String(n.message).includes('Suresh') && !String(n.inviter_name).includes('Suresh')
-      );
-    }
-    next();
-  });
-
   // Forward declaration for Mandi benchmarks in scope of all endpoints
   let defaultMandiRates: any[] = [];
 
-  // Helper auth check
+  // Helper auth check with fallback to users.json
   const getUserFromToken = (req: express.Request) => {
     const auth = req.headers.authorization;
     if (!auth) return null;
-    const token = auth.replace("Bearer ", "").trim();
+    const token = auth.replace(/^Bearer\s+/i, "").trim();
     if (token.startsWith("user_")) {
       const id = parseInt(token.replace("user_", ""));
-      return db.users.find(u => u.id === id) || null;
+      let found = db.users.find(u => Number(u.id) === id);
+      if (!found) {
+        // Fallback: check users directory files to restore active session
+        try {
+          const userFiles = [DATA_USERS_FILE, USERS_FILE];
+          for (const uFile of userFiles) {
+            if (fs.existsSync(uFile)) {
+              const uData = JSON.parse(fs.readFileSync(uFile, "utf-8"));
+              const allUsers = [...(uData.farmer_users || []), ...(uData.customer_users || []), ...(uData.buyer_users || [])];
+              const match = allUsers.find((u: any) => Number(u.id) === id);
+              if (match) {
+                db.users.push(match);
+                found = match;
+                break;
+              }
+            }
+          }
+        } catch {}
+      }
+      return found || null;
     }
-    return db.users.find(u => u.email.toLowerCase() === token.toLowerCase()) || null;
+    return db.users.find(u => (u.email || "").toLowerCase() === token.toLowerCase()) || null;
   };
 
   // --- REST API ENDPOINTS ---
@@ -488,13 +473,14 @@ async function startServer() {
 
     const isBuyer = role === "buyer";
     const resolvedAddress = delivery_address || location || "Maharashtra";
+    const cleanRole = String(role || "customer").toLowerCase().trim();
     const newUser = {
-      id: db.users.length ? Math.max(...db.users.map(u => u.id)) + 1 : 1,
+      id: db.users.length ? Math.max(1000, ...db.users.map(u => Number(u.id) || 0)) + 1 : 1001,
       full_name,
       email,
       phone: phone || "+91 98000 00000",
       password: password ? String(password).trim() : "farmiq123",
-      role: role || "customer",
+      role: cleanRole,
       farm_name: farm_name || null,
       location: location || resolvedAddress,
       delivery_address: delivery_address || resolvedAddress,
@@ -583,7 +569,6 @@ async function startServer() {
 
     const cleanDigits = cleanEmail.replace(/\D/g, '');
     const user = db.users.find(u => {
-      if (role && u.role !== role) return false;
       const uEmail = (u.email || "").toLowerCase();
       const uPhoneDigits = String(u.phone || "").replace(/\D/g, '');
       const uName = (u.full_name || "").toLowerCase();
@@ -592,15 +577,7 @@ async function startServer() {
       if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
       if (uName === cleanEmail) return true;
       return false;
-    }) || (!role ? db.users.find(u => {
-      const uEmail = (u.email || "").toLowerCase();
-      const uPhoneDigits = String(u.phone || "").replace(/\D/g, '');
-      const uName = (u.full_name || "").toLowerCase();
-      if (uEmail === cleanEmail) return true;
-      if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
-      if (uName === cleanEmail) return true;
-      return false;
-    }) : null);
+    });
 
     if (!user) {
       return res.status(401).json({ error: "Invalid email or password" });
@@ -1051,7 +1028,7 @@ async function startServer() {
 
   app.post("/api/products", (req, res) => {
     const user = getUserFromToken(req);
-    if (!user || user.role !== "farmer") {
+    if (!user || String(user.role).toLowerCase() !== "farmer") {
       return res.status(403).json({ error: "Only farmers can list produce" });
     }
     const { name, category, quantity, unit, price, harvest_date, location, description, organic, image_url, image_base64, shelf_life_days } = req.body;
@@ -1082,7 +1059,7 @@ async function startServer() {
     }
 
     const newProduct = {
-      id: db.products.length ? Math.max(...db.products.map(p => p.id)) + 1 : 1,
+      id: db.products.length ? Math.max(100, ...db.products.map(p => Number(p.id) || 0)) + 1 : 101,
       farmer_id: user.id,
       farmer_name: user.full_name,
       farm_name: user.farm_name || "FarmiQ Partner Farm",

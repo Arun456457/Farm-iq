@@ -27,6 +27,7 @@ interface NavbarProps {
   onOrderRejected?: (orderId: number) => void;
   onOpenInstallModal?: () => void;
   onOpenEditProfile?: () => void;
+  isAppInstalled?: boolean;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -47,6 +48,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOrderRejected,
   onOpenInstallModal,
   onOpenEditProfile,
+  isAppInstalled = false,
 }) => {
   const t = translations[language];
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
@@ -209,8 +211,8 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* 3. Right: Location, Install App, Notifications, Language, User profile & THREE LINES MENU at corner */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-            {/* Install App button - Desktop only, on mobile it is under ☰ */}
-            {onOpenInstallModal && (
+            {/* Install App button - Desktop only, hidden once installed */}
+            {!isAppInstalled && onOpenInstallModal && (
               <button
                 id="btn-install-app-header"
                 type="button"
@@ -692,8 +694,8 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
                       </button>
 
-                      {/* 6. Install FarmiQ */}
-                      {onOpenInstallModal && (
+                      {/* 6. Install FarmiQ - hidden once app is installed */}
+                      {!isAppInstalled && onOpenInstallModal && (
                         <button
                           id="menu-item-install-app"
                           type="button"

@@ -65,23 +65,42 @@ export default function App() {
 
   // PWA App Installation State & Initial Popup
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                             window.matchMedia('(display-mode: fullscreen)').matches ||
+                             window.matchMedia('(display-mode: minimal-ui)').matches ||
+                             (window.navigator as any).standalone === true;
+        const storedInstalled = localStorage.getItem('farmiq_app_installed') === 'true';
+        return Boolean(isStandalone || storedInstalled);
+      }
+    } catch {}
+    return false;
+  });
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
-  const [isAppInstalled, setIsAppInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if running in standalone mode (already installed)
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    if (isStandalone) {
+    // Check if running in standalone mode (already installed) or previously recorded as installed
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches ||
+                         window.matchMedia('(display-mode: fullscreen)').matches ||
+                         window.matchMedia('(display-mode: minimal-ui)').matches ||
+                         (window.navigator as any).standalone === true;
+    const alreadyInstalled = localStorage.getItem('farmiq_app_installed') === 'true';
+
+    if (isStandalone || alreadyInstalled) {
       setIsAppInstalled(true);
+      setIsInstallModalOpen(false);
       return;
     }
 
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Popup install app at first open if not dismissed in session
+      // Popup install app at first open if not dismissed in session and not installed
       const hasDismissed = sessionStorage.getItem('farmiq_install_dismissed');
-      if (!hasDismissed) {
+      const isCurrentlyInstalled = localStorage.getItem('farmiq_app_installed') === 'true';
+      if (!hasDismissed && !isCurrentlyInstalled) {
         setTimeout(() => {
           setIsInstallModalOpen(true);
         }, 1200);
@@ -98,9 +117,21 @@ export default function App() {
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
 
+    // Watch for standalone display mode changes
+    const mq = window.matchMedia('(display-mode: standalone)');
+    const handleModeChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        setIsAppInstalled(true);
+        setIsInstallModalOpen(false);
+        localStorage.setItem('farmiq_app_installed', 'true');
+      }
+    };
+    if (mq.addEventListener) {
+      mq.addEventListener('change', handleModeChange);
+    }
+
     // Initial popup for devices where beforeinstallprompt isn't fired automatically (e.g. iOS or browsers without event)
     const hasDismissed = sessionStorage.getItem('farmiq_install_dismissed');
-    const alreadyInstalled = localStorage.getItem('farmiq_app_installed');
     let timer: any = null;
     if (!hasDismissed && !alreadyInstalled && !isStandalone) {
       timer = setTimeout(() => {
@@ -112,6 +143,9 @@ export default function App() {
       if (timer) clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleAppInstalled);
+      if (mq.removeEventListener) {
+        mq.removeEventListener('change', handleModeChange);
+      }
     };
   }, []);
 
@@ -280,7 +314,8 @@ export default function App() {
         onTrackOrder={handleOpenGlobalTracking}
         onOrderAccepted={triggerSync}
         onOrderRejected={triggerSync}
-        onOpenInstallModal={() => setIsInstallModalOpen(true)}
+        isAppInstalled={isAppInstalled}
+        onOpenInstallModal={isAppInstalled ? undefined : () => setIsInstallModalOpen(true)}
         onOpenEditProfile={() => setIsEditProfileOpen(true)}
       />
 
@@ -420,15 +455,21 @@ export default function App() {
       />
 
       {/* PWA App Installation Modal & Initial Popup */}
-      <InstallAppModal
-        isOpen={isInstallModalOpen}
-        onClose={() => {
-          setIsInstallModalOpen(false);
-          sessionStorage.setItem('farmiq_install_dismissed', 'true');
-        }}
-        deferredPrompt={deferredPrompt}
-        onInstallSuccess={() => setIsAppInstalled(true)}
-      />
+      {!isAppInstalled && (
+        <InstallAppModal
+          isOpen={isInstallModalOpen}
+          onClose={() => {
+            setIsInstallModalOpen(false);
+            sessionStorage.setItem('farmiq_install_dismissed', 'true');
+          }}
+          deferredPrompt={deferredPrompt}
+          onInstallSuccess={() => {
+            setIsAppInstalled(true);
+            setIsInstallModalOpen(false);
+            localStorage.setItem('farmiq_app_installed', 'true');
+          }}
+        />
+      )}
 
       {/* Global Live Tracking Modal */}
       {isGlobalTrackingOpen && globalTrackingOrder && (
