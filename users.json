@@ -1,7 +1,7 @@
 {
   "description": "FarmiQ Registered Users Credentials & Profiles Directory",
-  "last_updated": "2026-09-16T13:04:34.350Z",
-  "total_farmers": 1,
+  "last_updated": "2026-09-16T13:19:01.159Z",
+  "total_farmers": 2,
   "total_customers": 0,
   "total_buyers": 0,
   "farmer_users": [
@@ -18,6 +18,20 @@
       "pincode": "415612",
       "upi_id": "9133144324@ybl",
       "registered_at": "2026-09-16T13:04:00.098Z"
+    },
+    {
+      "id": 1002,
+      "role": "farmer",
+      "full_name": "Arun",
+      "email": "arun@farmiq.in",
+      "phone": "+91 98000 00000",
+      "password": "farmer123",
+      "farm_name": "Gold farm",
+      "location": "Venkateswara Colony, Ongole",
+      "delivery_address": "Venkateswara Colony, Ongole",
+      "pincode": "523001",
+      "upi_id": "9133144324@ybl",
+      "registered_at": "2026-09-16T13:13:39.215Z"
     }
   ],
   "customer_users": [],
