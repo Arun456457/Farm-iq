@@ -419,8 +419,10 @@ async function startServer() {
   app.use("/api", (req, res, next) => {
     if (db) {
       db.users = (db.users || []).filter(u =>
-        ![1, 2, 107, 108, 109, 110, 111, 112].includes(u.id) &&
-        !['farmer.patil@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in'].includes(u.email?.toLowerCase())
+        ![1, 2, 100, 101, 107, 108, 109, 110, 111, 112, 113, 114].includes(u.id) &&
+        !['farmer.patil@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.farmer@example.com', 'anita.customer@example.com'].includes(u.email?.toLowerCase()) &&
+        !String(u.full_name).toLowerCase().includes('ramesh') &&
+        !String(u.full_name).toLowerCase().includes('anita')
       );
       db.products = (db.products || []).filter(p =>
         p.farmer_id !== 1 &&
