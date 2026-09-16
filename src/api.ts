@@ -70,6 +70,29 @@ export const api = {
     body: JSON.stringify(payload)
   }),
 
+  forgotPassword: (payload: { identifier: string }) => request<{
+    success: boolean;
+    message: string;
+    email: string;
+    phone: string;
+    full_name: string;
+    role: string;
+    password: string;
+    whatsapp_url: string;
+  }>('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
+
+  resetPassword: (payload: { identifier: string; new_password: string }) => request<{
+    success: boolean;
+    message: string;
+    user: User;
+  }>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  }),
+
   getMe: () => request<{ user: User }>('/auth/me'),
 
   // Products

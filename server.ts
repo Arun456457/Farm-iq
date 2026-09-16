@@ -118,11 +118,14 @@ function loadState(): DBState {
 
       // Purge only legacy demo placeholder emails if present; never purge by numeric ID or name
       merged.users = (merged.users || []).filter((u: any) =>
-        !['farmer.patil@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.shinde@farmiq.in', 'sunita.jadhav@farmiq.in', 'ganesh.pawar@farmiq.in', 'nitin.more@farmiq.in'].includes(u.email?.toLowerCase())
+        !['farmer.patil@farmiq.in', 'ramesh.farmer.test@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.shinde@farmiq.in', 'sunita.jadhav@farmiq.in', 'ganesh.pawar@farmiq.in', 'nitin.more@farmiq.in'].includes(u.email?.toLowerCase()) &&
+        !String(u.full_name || '').toLowerCase().includes('ramesh patil')
       );
 
       merged.products = (merged.products || []).filter((p: any) =>
         !String(p.farmer_name || '').includes('Suresh') &&
+        !String(p.farmer_name || '').toLowerCase().includes('ramesh') &&
+        !String(p.name || '').toLowerCase().includes('alphonso') &&
         p.farmer_name !== 'farmer.patil@farmiq.in'
       );
 
@@ -634,6 +637,94 @@ async function startServer() {
     const user = getUserFromToken(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
     res.json({ user, ...user });
+  });
+
+  // FORGOT PASSWORD & RECOVERY NOTIFICATION (SMS / WhatsApp)
+  app.post("/api/auth/forgot-password", (req, res) => {
+    const { identifier } = req.body;
+    if (!identifier || !String(identifier).trim()) {
+      return res.status(400).json({ error: "Please enter your registered email address or phone number." });
+    }
+
+    const cleanIdent = String(identifier).trim().toLowerCase();
+    const cleanDigits = cleanIdent.replace(/\D/g, '');
+
+    const user = (db.users || []).find(u => {
+      const uEmail = String(u.email || "").trim().toLowerCase();
+      const uPhoneDigits = String(u.phone || "").replace(/\D/g, '');
+      const uName = String(u.full_name || "").trim().toLowerCase();
+
+      if (uEmail === cleanIdent) return true;
+      if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
+      if (cleanDigits.length >= 6 && uPhoneDigits.includes(cleanDigits)) return true;
+      if (uName === cleanIdent) return true;
+      return false;
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "No FarmiQ account found matching that email or mobile number. Please check your spelling or register a new account."
+      });
+    }
+
+    const userPassword = user.password || (user.role === 'farmer' ? 'farmer123' : (user.role === 'admin' ? 'farmiq' : 'customer123'));
+    const appUrl = getAppBaseUrl(req);
+    const phoneDigits = String(user.phone || "").replace(/\D/g, '');
+    const intlPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : (phoneDigits || "919800000000");
+
+    const waMsg = `🌾 *FarmiQ Password Recovery Alert!*\n\nHello *${user.full_name || 'FarmiQ User'}*,\n\nYou requested password recovery for your FarmiQ account.\n\n📧 *Email:* ${user.email}\n📱 *Phone:* ${user.phone || 'N/A'}\n👤 *Role:* ${String(user.role || 'user').toUpperCase()}\n🔑 *Your Password is:* *${userPassword}*\n\n👉 *Login to FarmiQ:* ${appUrl}/\n\nIf you did not request this, please login and update your password in profile settings.`;
+
+    const whatsappUrl = `https://api.whatsapp.com/send?phone=${intlPhone}&text=${encodeURIComponent(waMsg)}`;
+
+    res.json({
+      success: true,
+      message: "Account found! Your password has been retrieved.",
+      email: user.email,
+      phone: user.phone || "+91 98000 00000",
+      full_name: user.full_name || "FarmiQ Member",
+      role: user.role,
+      password: userPassword,
+      whatsapp_url: whatsappUrl
+    });
+  });
+
+  // RESET PASSWORD ENDPOINT
+  app.post("/api/auth/reset-password", (req, res) => {
+    const { identifier, new_password } = req.body;
+    if (!identifier || !String(identifier).trim()) {
+      return res.status(400).json({ error: "Email or phone number is required." });
+    }
+    if (!new_password || String(new_password).trim().length < 4) {
+      return res.status(400).json({ error: "New password must be at least 4 characters long." });
+    }
+
+    const cleanIdent = String(identifier).trim().toLowerCase();
+    const cleanDigits = cleanIdent.replace(/\D/g, '');
+
+    const user = (db.users || []).find(u => {
+      const uEmail = String(u.email || "").trim().toLowerCase();
+      const uPhoneDigits = String(u.phone || "").replace(/\D/g, '');
+      const uName = String(u.full_name || "").trim().toLowerCase();
+
+      if (uEmail === cleanIdent) return true;
+      if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
+      if (cleanDigits.length >= 6 && uPhoneDigits.includes(cleanDigits)) return true;
+      if (uName === cleanIdent) return true;
+      return false;
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "No user found with the provided credentials." });
+    }
+
+    user.password = String(new_password).trim();
+    saveState(db);
+
+    res.json({
+      success: true,
+      message: "Password updated successfully! You can now log in with your new password.",
+      user
+    });
   });
 
   // USER PROFILE & ADDRESS / PAYMENT SETTINGS

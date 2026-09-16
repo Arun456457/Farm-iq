@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash, Eye, EyeOff } from 'lucide-react';
+import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash, Eye, EyeOff, ArrowLeft, Copy, Key, MessageSquare } from 'lucide-react';
 import { User, UserRole, LanguageCode } from '../types';
 import { api, setAuthToken, setStoredUser } from '../api';
 import { translations } from '../translations';
@@ -50,6 +50,24 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Forgot Password & Recovery states
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [forgotIdentifier, setForgotIdentifier] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotResult, setForgotResult] = useState<{
+    email: string;
+    phone: string;
+    full_name: string;
+    role: string;
+    password: string;
+    whatsapp_url: string;
+  } | null>(null);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  const [newResetPassword, setNewResetPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+
   // Auto-detect GPS location
   const handleDetectGPS = () => {
     if (!navigator.geolocation) {
@@ -96,6 +114,62 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       },
       { timeout: 8000, enableHighAccuracy: true }
     );
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotIdentifier.trim()) {
+      setForgotError('Please enter your registered email address or mobile number.');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError(null);
+    setForgotResult(null);
+    setResetSuccess(null);
+
+    try {
+      const res = await api.forgotPassword({ identifier: forgotIdentifier.trim() });
+      setForgotResult(res);
+    } catch (err: any) {
+      setForgotError(err.message || 'Could not find account. Please verify your details.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotResult) return;
+    if (!newResetPassword.trim() || newResetPassword.trim().length < 4) {
+      setForgotError('New password must be at least 4 characters long.');
+      return;
+    }
+    setResetLoading(true);
+    setForgotError(null);
+    try {
+      await api.resetPassword({
+        identifier: forgotResult.email,
+        new_password: newResetPassword.trim(),
+      });
+      setResetSuccess('✓ Password updated successfully! You can now log in.');
+      setPassword(newResetPassword.trim());
+      setForgotResult({
+        ...forgotResult,
+        password: newResetPassword.trim(),
+      });
+      setNewResetPassword('');
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to update password.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleCopyPassword = () => {
+    if (!forgotResult?.password) return;
+    navigator.clipboard.writeText(forgotResult.password);
+    setCopiedPassword(true);
+    setTimeout(() => setCopiedPassword(false), 2000);
   };
 
   if (!isOpen) return null;
@@ -189,35 +263,206 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <span className="text-xl font-bold tracking-tight">FarmiQ</span>
           </div>
           <h2 className="text-lg font-bold">
-            {mode === 'login' ? 'Sign In to Your Account' : 'Join the Direct Marketplace'}
+            {isForgotPassword
+              ? 'Password Recovery'
+              : (mode === 'login' ? 'Sign In to Your Account' : 'Join the Direct Marketplace')}
           </h2>
           <p className="text-xs text-emerald-100/90 mt-0.5">
-            {mode === 'login' ? 'Access your direct orders & listings' : 'Zero middlemen. Fair farm-gate realization.'}
+            {isForgotPassword
+              ? 'Retrieve your password or send alert to WhatsApp'
+              : (mode === 'login' ? 'Access your direct orders & listings' : 'Zero middlemen. Fair farm-gate realization.')}
           </p>
         </div>
 
-        {/* Mode Switcher Tabs */}
-        <div className="flex border-b border-stone-200 shrink-0">
-          <button
-            type="button"
-            onClick={() => { setMode('login'); setError(null); }}
-            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition ${mode === 'login' ? 'border-emerald-700 text-emerald-800 bg-emerald-50/50' : 'border-transparent text-stone-500 hover:text-stone-800'
-              }`}
-          >
-            {t.login}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('register'); setError(null); }}
-            className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition ${mode === 'register' ? 'border-emerald-700 text-emerald-800 bg-emerald-50/50' : 'border-transparent text-stone-500 hover:text-stone-800'
-              }`}
-          >
-            {t.createAccount}
-          </button>
-        </div>
+        {/* Mode Switcher Tabs (hidden during password recovery) */}
+        {!isForgotPassword && (
+          <div className="flex border-b border-stone-200 shrink-0">
+            <button
+              type="button"
+              onClick={() => { setMode('login'); setError(null); }}
+              className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition ${mode === 'login' ? 'border-emerald-700 text-emerald-800 bg-emerald-50/50' : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+            >
+              {t.login}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode('register'); setError(null); }}
+              className={`flex-1 py-3 text-xs font-bold text-center border-b-2 transition ${mode === 'register' ? 'border-emerald-700 text-emerald-800 bg-emerald-50/50' : 'border-transparent text-stone-500 hover:text-stone-800'
+                }`}
+            >
+              {t.createAccount}
+            </button>
+          </div>
+        )}
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-left overflow-y-auto flex-1">
+        {/* Form Body or Forgot Password Screen */}
+        {isForgotPassword ? (
+          <div className="p-5 sm:p-6 space-y-4 text-left overflow-y-auto flex-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsForgotPassword(false);
+                setForgotError(null);
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-950 transition cursor-pointer"
+            >
+              <ArrowLeft className="w-4 h-4" /> Back to Sign In
+            </button>
+
+            <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5 text-xs text-stone-600">
+              <p className="font-semibold text-stone-800 mb-1">🔍 Find & Retrieve Your Password</p>
+              <p>Enter your registered <strong>Email Address</strong> or <strong>Mobile Number</strong> below. FarmiQ will retrieve your account password and provide a direct WhatsApp / SMS alert link.</p>
+            </div>
+
+            {forgotError && (
+              <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{forgotError}</span>
+              </div>
+            )}
+
+            {resetSuccess && (
+              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            {!forgotResult ? (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Registered Email or Phone Number *
+                  </label>
+                  <div className="relative">
+                    <Mail className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
+                    <input
+                      type="text"
+                      required
+                      value={forgotIdentifier}
+                      onChange={(e) => setForgotIdentifier(e.target.value)}
+                      placeholder="e.g. arun.gera456@gmail.com or 9800000000"
+                      className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={forgotLoading}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-200 transition disabled:bg-stone-300 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {forgotLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> Searching Account...
+                    </>
+                  ) : (
+                    <>
+                      <Key className="w-4 h-4" /> Retrieve My Password
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                {/* Account Details Box */}
+                <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 text-xs space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-emerald-200/60 pb-2">
+                    <div>
+                      <div className="text-stone-500 text-[11px]">Account Holder</div>
+                      <div className="font-bold text-emerald-950 text-sm">{forgotResult.full_name}</div>
+                    </div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      {forgotResult.role}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-stone-600">
+                    <div>
+                      <span className="text-stone-400">Email:</span> <strong className="text-stone-800">{forgotResult.email}</strong>
+                    </div>
+                    <div>
+                      <span className="text-stone-400">Phone:</span> <strong className="text-stone-800">{forgotResult.phone}</strong>
+                    </div>
+                  </div>
+
+                  {/* Password Card */}
+                  <div className="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between bg-white p-3 rounded-lg border border-emerald-300">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-stone-500">Your Account Password</div>
+                      <div className="font-mono text-base font-black text-emerald-900 tracking-wider">
+                        {forgotResult.password}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleCopyPassword}
+                      className="px-3 py-1.5 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
+                    >
+                      {copiedPassword ? (
+                        <>
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" /> Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* WhatsApp Notification Button */}
+                <a
+                  href={forgotResult.whatsapp_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-2.5 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-xs shadow-md shadow-green-200 transition flex items-center justify-center gap-2 cursor-pointer no-underline"
+                >
+                  <MessageSquare className="w-4 h-4" /> 📲 Send Password Alert to WhatsApp / SMS
+                </a>
+
+                {/* Pre-fill into Login Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail(forgotResult.email);
+                    setPassword(forgotResult.password);
+                    setIsForgotPassword(false);
+                    setError(null);
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  Sign In with this Password
+                </button>
+
+                {/* Inline Reset Form */}
+                <div className="pt-2 border-t border-stone-200">
+                  <div className="text-xs font-bold text-stone-700 mb-2">Want to change your password now?</div>
+                  <form onSubmit={handleResetPassword} className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newResetPassword}
+                      onChange={(e) => setNewResetPassword(e.target.value)}
+                      placeholder="Enter new password"
+                      className="flex-1 px-3 py-1.5 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600"
+                    />
+                    <button
+                      type="submit"
+                      disabled={resetLoading}
+                      className="px-3 py-1.5 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded-lg transition disabled:bg-stone-400 cursor-pointer shrink-0"
+                    >
+                      {resetLoading ? 'Saving...' : 'Set New'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Form Body */
+          <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4 text-left overflow-y-auto flex-1">
           {error && (
             <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-start gap-2">
               <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -558,7 +803,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
           {/* Password */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1">Password *</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-bold text-stone-700">Password *</label>
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsForgotPassword(true);
+                    setForgotIdentifier(email || phone || '');
+                    setError(null);
+                    setForgotError(null);
+                    setForgotResult(null);
+                    setResetSuccess(null);
+                  }}
+                  className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              )}
+            </div>
             <div className="relative">
               <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
               <input
@@ -593,6 +856,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             {loading ? 'Processing...' : (mode === 'login' ? t.login : t.createAccount)}
           </button>
         </form>
+        )}
       </div>
 
       {/* Interactive Map Picker Modal */}
