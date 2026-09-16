@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+/* Google Translate clean styling */
+.goog-te-banner-frame.skiptranslate,
+.goog-te-banner-frame,
+iframe.goog-te-banner-frame {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+html, body, #root {
+  max-width: 100vw;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  top: 0px !important;
+  position: static !important;
+}
+
+/* Hide scrollbar for clean horizontal tab strips */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.goog-tooltip,
+.goog-tooltip:hover {
+  display: none !important;
+}
+
+.goog-text-highlight {
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+#goog-gt-tt {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+.skiptranslate iframe {
+  display: none !important;
+}
