@@ -408,6 +408,35 @@ function calculateDeliveryFee(distanceKm: number): number {
   }
 }
 
+/**
+ * Dynamically resolves the FarmiQ web application base URL.
+ * Automatically detects Render production URL (https://farm-iq-pdaq.onrender.com)
+ * or local development (http://localhost:3000) based on request headers or env.
+ */
+function getAppBaseUrl(req?: express.Request): string {
+  if (process.env.APP_URL) {
+    return process.env.APP_URL.replace(/\/+$/, '');
+  }
+  if (process.env.RENDER_EXTERNAL_URL) {
+    return process.env.RENDER_EXTERNAL_URL.replace(/\/+$/, '');
+  }
+  if (req) {
+    const origin = req.headers.origin as string;
+    if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1')) {
+      return origin.replace(/\/+$/, '');
+    }
+    const forwardedHost = (req.headers['x-forwarded-host'] || req.headers.host) as string;
+    if (forwardedHost) {
+      if (forwardedHost.includes('localhost') || forwardedHost.includes('127.0.0.1')) {
+        return `http://${forwardedHost}`.replace(/\/+$/, '');
+      }
+      const proto = (req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'https')) as string;
+      return `${proto}://${forwardedHost}`.replace(/\/+$/, '');
+    }
+  }
+  return 'https://farm-iq-pdaq.onrender.com';
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: "25mb" }));
@@ -1344,6 +1373,7 @@ async function startServer() {
       created_at: new Date().toISOString()
     };
 
+    const appUrl = getAppBaseUrl(req);
     const farmerWhatsAppMsg =
       `🌾 *FarmiQ Alert: You Received a New Order!*\n\n` +
       `Hello Farmer *${prod.farmer_name}*, a customer has placed a harvest order with you on FarmiQ!\n\n` +
@@ -1353,7 +1383,7 @@ async function startServer() {
       `💰 *Total Amount:* ₹${grandTotal} (Produce: ₹${productTotal} + Delivery: ₹${deliveryCharge})\n` +
       `📍 *Delivery Address:* ${newOrder.delivery_address}\n\n` +
       `👉 *Open FarmiQ to Confirm & Accept:*\n` +
-      `http://localhost:3000/`;
+      `${appUrl}/?tab=farmer-orders`;
 
     const farmerWhatsAppUrl = `https://api.whatsapp.com/send?phone=${cleanFarmerPhone}&text=${encodeURIComponent(farmerWhatsAppMsg)}`;
     newOrder.farmer_whatsapp_msg = farmerWhatsAppMsg;
@@ -1415,6 +1445,7 @@ async function startServer() {
       cleanCustPhone = '91' + cleanCustPhone;
     }
 
+    const appUrl = getAppBaseUrl(req);
     const custWhatsAppMsg =
       `🎉 *FarmiQ: Your Order #${order.id} is Accepted!*\n\n` +
       `Dear *${order.customer_name}*, Farmer *${order.farmer_name}* has ACCEPTED your harvest order!\n\n` +
@@ -1424,9 +1455,9 @@ async function startServer() {
       `• Farm: ${order.farmer_name} (${order.farmer_location || 'Local Farm'})\n` +
       `• Invoice: #${invoice.invoice_number}\n\n` +
       `⚡ *Your Direct Options:*\n` +
-      `📍 *1. Track Order Live:* http://localhost:3000/?tab=customer-orders&track=${order.id}\n` +
-      `💳 *2. Pay via UPI:* http://localhost:3000/?tab=customer-orders&pay=${order.id}\n` +
-      `📄 *3. View Invoice:* http://localhost:3000/?tab=customer-orders&invoice=${order.id}\n\n` +
+      `📍 *1. Track Order Live:* ${appUrl}/?tab=customer-orders&track=${order.id}\n` +
+      `💳 *2. Pay via UPI:* ${appUrl}/?tab=customer-orders&pay=${order.id}\n` +
+      `📄 *3. View Invoice:* ${appUrl}/?tab=customer-orders&invoice=${order.id}\n\n` +
       `Thank you for supporting direct Indian farmers! 🌾`;
 
     const custWhatsAppUrl = `https://api.whatsapp.com/send?phone=${cleanCustPhone}&text=${encodeURIComponent(custWhatsAppMsg)}`;
