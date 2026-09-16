@@ -230,16 +230,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
       }
     } catch (err: any) {
       const rawMsg: string = err.message || '';
-      if (
-        rawMsg.toLowerCase().includes('password') ||
-        rawMsg.toLowerCase().includes('credentials') ||
-        rawMsg.toLowerCase().includes('admin@farmiq') ||
-        rawMsg.toLowerCase().includes('farmiq')
-      ) {
-        setError('Invalid email or password. Access denied.');
-      } else {
-        setError(rawMsg || 'Authentication failed. Please check credentials.');
-      }
+      setError(rawMsg || 'Authentication failed. Please check credentials.');
     } finally {
       setLoading(false);
     }
@@ -534,17 +525,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* Email */}
+          {/* Email or Phone for Login */}
           <div>
-            <label className="block text-xs font-bold text-stone-700 mb-1">Email Address *</label>
+            <label className="block text-xs font-bold text-stone-700 mb-1">
+              {mode === 'login' ? 'Email Address or Mobile Number *' : 'Email Address *'}
+            </label>
             <div className="relative">
               <Mail className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
               <input
-                type="email"
+                type={mode === 'login' ? 'text' : 'email'}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@domain.com"
+                placeholder={mode === 'login' ? 'e.g. arun.gera456@gmail.com or 9133144324' : 'name@domain.com'}
                 className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
               />
             </div>

@@ -600,25 +600,35 @@ async function startServer() {
     }
 
     const cleanDigits = cleanEmail.replace(/\D/g, '');
-    const user = db.users.find(u => {
-      const uEmail = (u.email || "").toLowerCase();
+    let candidates = (db.users || []).filter(u => {
+      const uEmail = String(u.email || "").trim().toLowerCase();
       const uPhoneDigits = String(u.phone || "").replace(/\D/g, '');
-      const uName = (u.full_name || "").toLowerCase();
+      const uName = String(u.full_name || "").trim().toLowerCase();
 
       if (uEmail === cleanEmail) return true;
-      if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
+      if (cleanDigits.length >= 10 && uPhoneDigits.length >= 10 && uPhoneDigits.slice(-10) === cleanDigits.slice(-10)) return true;
+      if (cleanDigits.length >= 6 && uPhoneDigits.includes(cleanDigits)) return true;
       if (uName === cleanEmail) return true;
       return false;
     });
 
+    if (!candidates.length) {
+      return res.status(401).json({ error: "No account found matching this email or mobile number. Please check your credentials or register a new account." });
+    }
+
+    // If multiple accounts share this phone/name (e.g. Paul has both farmer and customer), pick the one matching role or password
+    let user = candidates.find(c => (role ? c.role === role : true) && String(c.password || '').trim() === cleanPassword);
     if (!user) {
-      return res.status(401).json({ error: "Invalid email or password" });
+      user = candidates.find(c => String(c.password || '').trim() === cleanPassword);
+    }
+    if (!user) {
+      user = candidates.find(c => (role ? c.role === role : true)) || candidates[0];
     }
 
     // STRICT PASSWORD VERIFICATION FOR ALL USERS:
-    const expectedPassword = user.password || (user.role === 'farmer' ? 'farmer123' : 'customer123');
+    const expectedPassword = String(user.password || (user.role === 'farmer' ? 'farmer123' : (user.role === 'admin' ? 'farmiq' : 'customer123'))).trim();
     if (cleanPassword !== expectedPassword) {
-      return res.status(401).json({ error: "Invalid password. Please check your password and try again." });
+      return res.status(401).json({ error: "Incorrect password for this account. Please try again or use 'Forgot Password?' to retrieve it." });
     }
 
     // Protect against non-admin email having admin role
@@ -655,7 +665,7 @@ async function startServer() {
       const uName = String(u.full_name || "").trim().toLowerCase();
 
       if (uEmail === cleanIdent) return true;
-      if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
+      if (cleanDigits.length >= 10 && uPhoneDigits.length >= 10 && uPhoneDigits.slice(-10) === cleanDigits.slice(-10)) return true;
       if (cleanDigits.length >= 6 && uPhoneDigits.includes(cleanDigits)) return true;
       if (uName === cleanIdent) return true;
       return false;
@@ -707,7 +717,7 @@ async function startServer() {
       const uName = String(u.full_name || "").trim().toLowerCase();
 
       if (uEmail === cleanIdent) return true;
-      if (cleanDigits.length >= 10 && uPhoneDigits.endsWith(cleanDigits)) return true;
+      if (cleanDigits.length >= 10 && uPhoneDigits.length >= 10 && uPhoneDigits.slice(-10) === cleanDigits.slice(-10)) return true;
       if (cleanDigits.length >= 6 && uPhoneDigits.includes(cleanDigits)) return true;
       if (uName === cleanIdent) return true;
       return false;

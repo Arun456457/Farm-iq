@@ -1,8 +1,8 @@
 {
   "description": "FarmiQ Registered Users Credentials & Profiles Directory",
-  "last_updated": "2026-09-16T14:08:29.101Z",
-  "total_farmers": 1,
-  "total_customers": 0,
+  "last_updated": "2026-09-16T14:54:27.381Z",
+  "total_farmers": 3,
+  "total_customers": 3,
   "total_buyers": 0,
   "farmer_users": [
     {
@@ -18,8 +18,73 @@
       "pincode": "523001",
       "upi_id": "9133144324@ybl",
       "registered_at": "2026-09-16T13:13:39.215Z"
+    },
+    {
+      "id": 1003,
+      "role": "farmer",
+      "full_name": "Paul",
+      "email": "paul986624@gmail.com",
+      "phone": "6304147857",
+      "password": "1234",
+      "farm_name": "Pshdk",
+      "location": "Ongole, Prakasam, Andhra Pradesh, 523002, India",
+      "delivery_address": "Ongole, Prakasam, Andhra Pradesh, 523002, India",
+      "pincode": "523001",
+      "upi_id": "9133144324@ybl",
+      "registered_at": "2026-09-16T14:17:12.080Z"
+    },
+    {
+      "id": 1006,
+      "role": "farmer",
+      "full_name": "akshaya",
+      "email": "akki@gmail.com",
+      "phone": "9030170776",
+      "password": "123456",
+      "farm_name": "FarmIQ",
+      "location": "Medchal–Malkajgiri",
+      "delivery_address": "Medchal–Malkajgiri",
+      "pincode": "500083",
+      "upi_id": "9030170776@ybl",
+      "registered_at": "2026-09-16T14:35:36.317Z"
     }
   ],
-  "customer_users": [],
+  "customer_users": [
+    {
+      "id": 1004,
+      "role": "customer",
+      "full_name": "Paul",
+      "email": "paul9866224@gmail.com",
+      "phone": "6304147857",
+      "password": "1234",
+      "location": "Ongole, Prakasam, Andhra Pradesh, 523002, India",
+      "delivery_address": "Ongole, Prakasam, Andhra Pradesh, 523002, India",
+      "pincode": "523001",
+      "registered_at": "2026-09-16T14:17:55.145Z"
+    },
+    {
+      "id": 1005,
+      "role": "customer",
+      "full_name": "Test Customer",
+      "email": "testuser1789569191595@gmail.com",
+      "phone": "+91 99999 88888",
+      "password": "password123",
+      "location": "Pune",
+      "delivery_address": "Pune",
+      "pincode": null,
+      "registered_at": "2026-09-16T14:33:14.923Z"
+    },
+    {
+      "id": 1007,
+      "role": "customer",
+      "full_name": "anu",
+      "email": "anu@gmail.com",
+      "phone": "9030170776",
+      "password": "123456",
+      "location": "Medchal–Malkajgiri",
+      "delivery_address": "Medchal–Malkajgiri",
+      "pincode": "500083",
+      "registered_at": "2026-09-16T14:37:53.109Z"
+    }
+  ],
   "buyer_users": []
 }
