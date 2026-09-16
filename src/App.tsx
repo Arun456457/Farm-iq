@@ -118,17 +118,31 @@ export default function App() {
   // Real-time multi-device sync indicator
   const [isSyncing, setIsSyncing] = useState(false);
 
-  // Initialize or re-sync user
+  // Initialize or re-sync user with database validation
   useEffect(() => {
     const stored = getStoredUser();
     if (stored) {
-      setUser(stored);
-      if (currentTab === 'landing') {
-        if (stored.role === 'farmer') setCurrentTab('my-produce');
-        else if (stored.role === 'admin') setCurrentTab('admin-overview');
-        else if (stored.role === 'buyer') setCurrentTab('buyer-orders');
-        else setCurrentTab('marketplace');
-      }
+      api.getMe()
+        .then((res: any) => {
+          const freshUser: User = (res && res.user) ? res.user : res;
+          if (!freshUser || !freshUser.id) throw new Error('Invalid user');
+          setUser(freshUser);
+          setStoredUser(freshUser);
+          if (currentTab === 'landing') {
+            if (freshUser.role === 'farmer') setCurrentTab('my-produce');
+            else if (freshUser.role === 'admin') setCurrentTab('admin-overview');
+            else if (freshUser.role === 'buyer') setCurrentTab('buyer-orders');
+            else setCurrentTab('marketplace');
+          }
+        })
+        .catch(() => {
+          // Stale session from purged database: log out completely to landing page
+          removeAuthToken();
+          setUser(null);
+          setCurrentTab('landing');
+        });
+    } else {
+      setUser(null);
     }
   }, []);
 

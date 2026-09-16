@@ -13,6 +13,8 @@ const PORT = Number(process.env.PORT) || 3000;
 
 // In-memory + file-backed robust store to ensure instant response and multi-device sync
 const DATA_FILE = path.join(projectRoot, "data", "app_state.json");
+const USERS_FILE = path.join(projectRoot, "users.json");
+const DATA_USERS_FILE = path.join(projectRoot, "data", "users.json");
 fs.mkdirSync(path.join(projectRoot, "data"), { recursive: true });
 
 interface DBState {
@@ -152,9 +154,81 @@ function loadState(): DBState {
   return { ...defaultState };
 }
 
+function syncUsersFile(users: any[]) {
+  try {
+    const list = users || [];
+    const nonAdminUsers = list.filter(u => u.role !== 'admin');
+
+    const farmerUsers = nonAdminUsers
+      .filter(u => u.role === 'farmer')
+      .map(u => ({
+        id: u.id,
+        role: "farmer",
+        full_name: u.full_name,
+        email: u.email,
+        phone: u.phone,
+        password: u.password || "farmer123",
+        farm_name: u.farm_name || null,
+        location: u.location,
+        delivery_address: u.delivery_address || null,
+        pincode: u.pincode || null,
+        upi_id: u.upi_id || null,
+        registered_at: u.created_at || new Date().toISOString()
+      }));
+
+    const customerUsers = nonAdminUsers
+      .filter(u => u.role === 'customer')
+      .map(u => ({
+        id: u.id,
+        role: "customer",
+        full_name: u.full_name,
+        email: u.email,
+        phone: u.phone,
+        password: u.password || "customer123",
+        location: u.location,
+        delivery_address: u.delivery_address || u.location,
+        pincode: u.pincode || null,
+        registered_at: u.created_at || new Date().toISOString()
+      }));
+
+    const buyerUsers = nonAdminUsers
+      .filter(u => u.role === 'buyer')
+      .map(u => ({
+        id: u.id,
+        role: "buyer",
+        full_name: u.full_name,
+        company_name: u.company_name || u.full_name,
+        buyer_type: u.buyer_type || "Wholesale Institutional",
+        email: u.email,
+        phone: u.phone,
+        password: u.password || "buyer123",
+        location: u.location,
+        registered_at: u.created_at || new Date().toISOString()
+      }));
+
+    const usersData = {
+      description: "FarmiQ Registered Users Credentials & Profiles Directory",
+      last_updated: new Date().toISOString(),
+      total_farmers: farmerUsers.length,
+      total_customers: customerUsers.length,
+      total_buyers: buyerUsers.length,
+      farmer_users: farmerUsers,
+      customer_users: customerUsers,
+      buyer_users: buyerUsers
+    };
+
+    const formatted = JSON.stringify(usersData, null, 2);
+    fs.writeFileSync(USERS_FILE, formatted, "utf-8");
+    fs.writeFileSync(DATA_USERS_FILE, formatted, "utf-8");
+  } catch (err) {
+    console.error("Error writing users.json file:", err);
+  }
+}
+
 function saveState(state: DBState) {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf-8");
+    syncUsersFile(state.users);
   } catch (err) {
     console.error("Error saving state file:", err);
   }
@@ -551,7 +625,7 @@ async function startServer() {
   app.get("/api/auth/me", (req, res) => {
     const user = getUserFromToken(req);
     if (!user) return res.status(401).json({ error: "Unauthorized" });
-    res.json(user);
+    res.json({ user, ...user });
   });
 
   // USER PROFILE & ADDRESS / PAYMENT SETTINGS
