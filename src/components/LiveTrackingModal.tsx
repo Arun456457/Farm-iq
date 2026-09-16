@@ -40,7 +40,7 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
           checkpoints: [
             { title: "Direct Produce Harvest & Loading at Farm", time: "Completed", completed: true },
             { title: "Quality Verification & Mandi Digital Seal", time: "Completed", completed: ["ACCEPTED", "PREPARING", "TRANSIT", "DELIVERED"].includes(order.status) },
-            { title: "Dispatched via ₹2/km Logistics Fleet", time: "Completed", completed: ["PREPARING", "TRANSIT", "DELIVERED"].includes(order.status) },
+            { title: "Dispatched via Direct Logistics Fleet", time: "Completed", completed: ["PREPARING", "TRANSIT", "DELIVERED"].includes(order.status) },
             { title: "Live Transit via Direct Highway Corridor", time: isDelivered ? "Completed" : "In Progress", completed: ["TRANSIT", "DELIVERED"].includes(order.status) },
             { title: "Delivered to Customer Doorstep", time: isDelivered ? "Delivered" : "Estimated", completed: isDelivered }
           ]
@@ -235,7 +235,7 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
               </div>
               <div>
                 <p className="font-bold text-stone-900">{trackingData?.driver_name || "Vikram Patil (FarmiQ Fleet)"}</p>
-                <p className="text-[11px] text-stone-500">Vehicle: {trackingData?.vehicle_number || "MH-14-AG-4492"} • ₹2/km Fleet</p>
+                <p className="text-[11px] text-stone-500">Vehicle: {trackingData?.vehicle_number || "MH-14-AG-4492"} • Direct Fleet</p>
               </div>
             </div>
             

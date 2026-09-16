@@ -209,7 +209,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
             <IndianRupee className="w-5 h-5 text-emerald-600" />
           </div>
           <p className="text-[11px] text-emerald-700 font-semibold mt-1">
-            Logistics fees: ₹{overview?.total_delivery_fees ?? 0} (@ ₹2/km)
+            Logistics fees: ₹{overview?.total_delivery_fees ?? 0}
           </p>
         </div>
       </div>
@@ -308,7 +308,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
                   <th className="px-4 py-3">Customer</th>
                   <th className="px-4 py-3">Farmer</th>
                   <th className="px-4 py-3">Produce & Qty</th>
-                  <th className="px-4 py-3">Logistics (₹2/km)</th>
+                  <th className="px-4 py-3">Logistics Fee</th>
                   <th className="px-4 py-3">Grand Total</th>
                   <th className="px-4 py-3">Current Status</th>
                   <th className="px-4 py-3">Admin Action</th>

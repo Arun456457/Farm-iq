@@ -23,7 +23,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ user, language }) => {
     {
       id: 'welcome',
       sender: 'bot',
-      text: `Namaste! 🙏 I am Kisan Mitra, your AI agricultural advisor powered by Gemini.\n\nAsk me anything! Whether it's crop diseases, organic fertilizers, live Mandi price trends, cold storage preservation, or how FarmiQ's ₹2/km direct delivery works, I'm here to help.`,
+      text: `Namaste! 🙏 I am Kisan Mitra, your AI agricultural advisor powered by Gemini.\n\nAsk me anything! Whether it's crop diseases, organic fertilizers, live Mandi price trends, cold storage preservation, or how FarmiQ's direct delivery works, I'm here to help.`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -76,7 +76,7 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ user, language }) => {
   const samplePrompts = [
     "How to preserve tomatoes for 3 weeks without rotting?",
     "Should I sell my onion harvest today or wait in cold storage?",
-    "Explain FarmiQ's ₹2 per km delivery calculation.",
+    "Explain FarmiQ's direct farm delivery.",
     "Organic pesticide recipe for whiteflies and aphids"
   ];
 

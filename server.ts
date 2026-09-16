@@ -320,6 +320,23 @@ function getGeminiClient(): GoogleGenAI | null {
   return geminiClient;
 }
 
+/**
+ * Fair distance-tiered delivery fee algorithm:
+ * - Up to 5 km: ₹5 per km (local direct dispatch)
+ * - 5 to 15 km: ₹3 per km (fair medium distance)
+ * - Above 15 km: ₹2 per km (economical long-haul rate)
+ */
+function calculateDeliveryFee(distanceKm: number): number {
+  const km = Math.max(1, Math.round((Number(distanceKm) || 1) * 10) / 10);
+  if (km <= 5) {
+    return Math.round(km * 5);
+  } else if (km <= 15) {
+    return Math.round(25 + (km - 5) * 3);
+  } else {
+    return Math.round(55 + (km - 15) * 2);
+  }
+}
+
 async function startServer() {
   const app = express();
   app.use(express.json({ limit: "25mb" }));
@@ -1111,7 +1128,7 @@ async function startServer() {
       { title: "Direct Produce Harvest & Loading at Farm", time: createdAtTime, completed: true },
       { title: "Mandi Digital Weighment & Quality Seal", time: isConfirmed ? "Verified" : "Pending", completed: isConfirmed },
       { title: "Farm Sorting & Protective Cold-Pack", time: isPreparing ? "Packed" : "Pending", completed: isPreparing },
-      { title: "Live Transit via Direct ₹2/km Route", time: isInTransit ? "Dispatched" : "Pending", completed: isInTransit },
+      { title: "Live Transit via Direct Logistics Route", time: isInTransit ? "Dispatched" : "Pending", completed: isInTransit },
       { title: "Delivered to Customer Doorstep", time: isDelivered ? deliveredTime : "Estimated", completed: isDelivered }
     ];
 
@@ -1210,7 +1227,7 @@ async function startServer() {
     }
 
     const dist = Number(distance_km) || 15;
-    const deliveryCharge = Math.round(dist * 2); // strictly ₹2 / km
+    const deliveryCharge = calculateDeliveryFee(dist);
     const productTotal = Math.round(orderQty * prod.price);
     const grandTotal = productTotal + deliveryCharge;
 
@@ -1280,7 +1297,7 @@ async function startServer() {
       `📦 *Order ID:* #${newOrder.id}\n` +
       `👤 *Customer:* ${user.full_name} (${user.phone || 'Phone verified'})\n` +
       `🥬 *Produce:* ${orderQty} ${prod.unit} × ${prod.name}\n` +
-      `💰 *Total Amount:* ₹${grandTotal} (Produce: ₹${productTotal} + Direct ₹2/km: ₹${deliveryCharge})\n` +
+      `💰 *Total Amount:* ₹${grandTotal} (Produce: ₹${productTotal} + Delivery: ₹${deliveryCharge})\n` +
       `📍 *Delivery Address:* ${newOrder.delivery_address}\n\n` +
       `👉 *Open FarmiQ to Confirm & Accept:*\n` +
       `http://localhost:3000/`;
@@ -1822,7 +1839,7 @@ async function startServer() {
     const orderQty = reqItem.required_quantity;
     const pricePerUnit = reqItem.expected_price || 30;
     const productTotal = Math.round(orderQty * pricePerUnit);
-    const deliveryCharge = 30; // ₹2/km default 15km
+    const deliveryCharge = calculateDeliveryFee(15);
     const grandTotal = productTotal + deliveryCharge;
 
     const newOrder = {
@@ -2473,7 +2490,7 @@ async function startServer() {
     if (!db.orders) db.orders = [];
     const newOrderId = db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101;
     const estDistance = 45;
-    const deliveryTariff = Math.round(estDistance * 2.0);
+    const deliveryTariff = calculateDeliveryFee(estDistance);
     const produceVal = Math.round(lot.quantity * lot.base_price_per_unit);
 
     const newOrder = {
@@ -2587,7 +2604,7 @@ async function startServer() {
     const newOrderId = db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101;
     const customDist = Number(req.body?.distance_km);
     const estDistance = !isNaN(customDist) && customDist > 0 ? customDist : 45;
-    const deliveryTariff = Math.round(estDistance * 2.0);
+    const deliveryTariff = calculateDeliveryFee(estDistance);
     const produceVal = Math.round(lot.quantity * lot.base_price_per_unit);
 
     const newOrder = {
@@ -2991,12 +3008,12 @@ async function startServer() {
       const client = getGeminiClient();
       if (!client) {
         return res.json({
-          reply: `[Kisan Mitra AI] For "${message}": Current Mandi market rates fluctuate based on arrival volumes at APMC centers. For direct selling, ensure produce is graded, calculate transport at ₹2/km, and consider cold storage if market prices are low. Feel free to ask about Tomato, Onion, Potato, Wheat, or any farming questions!`
+          reply: `[Kisan Mitra AI] For "${message}": Current Mandi market rates fluctuate based on arrival volumes at APMC centers. For direct selling, ensure produce is graded, calculate direct transport costs, and consider cold storage if market prices are low. Feel free to ask about Tomato, Onion, Potato, Wheat, or any farming questions!`
         });
       }
 
       const systemPrompt = `You are "Kisan Mitra / FarmiQ Agri-Advisor", an expert Indian agronomist and marketplace advisor.
-- Direct delivery is fixed at ₹2/km.
+- Direct delivery offers affordable distance-based delivery rates.
 - We support real-time Mandi price benchmarks across 20+ APMC markets.
 - We offer Cold Storage & Godown booking to avoid distress sales.
 - Digital Contracts & Buyer Demands enable forward pricing and escrow locks.
@@ -3014,7 +3031,7 @@ Answer warmly and concisely in simple terms. Provide actionable farming and mark
     } catch (err: any) {
       console.error("AI Chat Error:", err);
       res.json({
-        reply: `Kisan Mitra recommendation: Keep produce sorted by grade, check nearby APMC daily arrivals, and utilize cold storage if holding for higher prices. (Transport fee is ₹2/km).`
+        reply: `Kisan Mitra recommendation: Keep produce sorted by grade, check nearby APMC daily arrivals, and utilize cold storage if holding for higher prices. (Low-cost direct transport available).`
       });
     }
   });

@@ -7,6 +7,7 @@ import {
 import { User, Order, FPOLot, LanguageCode, CustomerRequirement } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
+import { calculateDeliveryFee } from '../utils/distance';
 
 interface BuyerDashboardProps {
   user: User;
@@ -406,7 +407,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                             <Truck className="w-3 h-3" />
                             <span>3. In Transit</span>
                           </div>
-                          <span className="text-[9px] opacity-90 block">₹2/km Direct</span>
+                          <span className="text-[9px] opacity-90 block">Direct Transit</span>
                         </div>
 
                         {/* Step 4 */}
@@ -479,7 +480,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                         <span className="text-[10px] text-stone-400 block font-medium">Logistics Distance</span>
                         <p className="font-semibold text-emerald-800 flex items-center gap-1 mt-0.5">
                           <Truck className="w-3.5 h-3.5 text-emerald-600" />
-                          {order.distance_km || 165} km (₹2/km = ₹{(order.delivery_fee || ((order.distance_km || 165) * 2)).toLocaleString('en-IN')})
+                          {order.distance_km || 165} km (Delivery: ₹{(order.delivery_fee || calculateDeliveryFee(order.distance_km || 165)).toLocaleString('en-IN')})
                         </p>
                       </div>
                     </div>
@@ -858,7 +859,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                     <span>Road Freight & Distance</span>
                   </div>
                   <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                    Fixed ₹2.0 / km / truck
+                    Direct Freight Logistics
                   </span>
                 </div>
 
@@ -876,7 +877,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                   </div>
                   <div className="text-right">
                     <span className="text-[11px] text-stone-500 block">Freight Tariff</span>
-                    <span className="text-sm font-bold text-stone-900">₹{procureDistanceKm * 2}</span>
+                    <span className="text-sm font-bold text-stone-900">₹{calculateDeliveryFee(procureDistanceKm)}</span>
                   </div>
                 </div>
               </div>
@@ -888,13 +889,13 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                   <span className="font-semibold text-stone-900">₹{(procureLotModal.quantity * procureLotModal.base_price_per_unit).toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between text-stone-600">
-                  <span>Road Logistics ({procureDistanceKm} km @ ₹2/km):</span>
-                  <span className="font-semibold text-stone-900">₹{(procureDistanceKm * 2).toLocaleString('en-IN')}</span>
+                  <span>Road Logistics ({procureDistanceKm} km):</span>
+                  <span className="font-semibold text-stone-900">₹{calculateDeliveryFee(procureDistanceKm).toLocaleString('en-IN')}</span>
                 </div>
                 <div className="pt-2 border-t border-stone-200 flex justify-between items-center text-sm font-extrabold text-stone-900">
                   <span>Total Escrow Deposit:</span>
                   <span className="text-emerald-800 text-base">
-                    ₹{(procureLotModal.quantity * procureLotModal.base_price_per_unit + procureDistanceKm * 2).toLocaleString('en-IN')}
+                    ₹{(procureLotModal.quantity * procureLotModal.base_price_per_unit + calculateDeliveryFee(procureDistanceKm)).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>

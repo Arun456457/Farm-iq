@@ -64,7 +64,7 @@ ${invoice.items
   .join('\n')}
 ------------------------------------------------------------
 Subtotal        : ₹${invoice.product_subtotal.toLocaleString('en-IN')}
-Delivery Charge : ₹${invoice.delivery_fee.toLocaleString('en-IN')} (${invoice.distance_km} km @ ₹2/km standard)
+Delivery Charge : ₹${invoice.delivery_fee.toLocaleString('en-IN')} (${invoice.distance_km} km direct delivery)
 GST / Taxes     : ₹0.00 (Exempt under Section 11 CGST Act - Fresh Agri Produce)
 Discounts       : ₹0.00
 ------------------------------------------------------------
@@ -332,7 +332,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                   <span>FarmiQ Transparent Logistics</span>
                 </div>
                 <p className="text-[11px] text-stone-500">
-                  Delivery is charged strictly at ₹2 per km ({invoice.distance_km} km × ₹2 = ₹{invoice.delivery_fee}) directly supporting rural transport drivers.
+                  Delivery is charged at distance-based fair rates (₹{invoice.delivery_fee} for {invoice.distance_km} km) directly supporting rural transport drivers.
                 </p>
               </div>
             </div>

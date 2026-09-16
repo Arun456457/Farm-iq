@@ -294,7 +294,7 @@ export interface AutomatedDistanceResult {
   distanceKm: number;
   originLabel: string;
   destinationLabel: string;
-  deliveryTariff: number; // At exact ₹2/km
+  deliveryTariff: number; // Low-cost distance-tiered delivery
   deliveryFee?: number;   // Alias for deliveryTariff
   calculationMethod: 'GOOGLE_MAPS_ROUTING' | 'OSRM_DRIVING_ROUTE' | 'GPS_COORDINATES' | 'GEO_ROAD_ROUTING' | 'REGIONAL_CORRIDOR';
   method?: string;        // Alias for calculationMethod
@@ -318,6 +318,24 @@ export function getGoogleMapsDirectionsUrl(
     ? encodeURIComponent(dest) 
     : `${dest.lat},${dest.lng}`;
   return `https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=driving`;
+}
+
+/**
+ * Fair distance-tiered delivery fee algorithm:
+ * - Up to 5 km: ₹5 per km (local direct dispatch)
+ * - 5 to 15 km: ₹3 per km (fair medium distance)
+ * - Above 15 km: ₹2 per km (economical long-haul rate)
+ * Internal algorithm hidden from users; only final fee is added at ordering.
+ */
+export function calculateDeliveryFee(distanceKm: number): number {
+  const km = Math.max(1, Math.round((Number(distanceKm) || 1) * 10) / 10);
+  if (km <= 5) {
+    return Math.round(km * 5);
+  } else if (km <= 15) {
+    return Math.round(25 + (km - 5) * 3);
+  } else {
+    return Math.round(55 + (km - 15) * 2);
+  }
 }
 
 /**
@@ -352,7 +370,7 @@ export function calculateAutomatedDistance(
   const isSameTown = isSameLocalityOrCity(originName, destName);
   if (isSameTown) {
     const localKm = 3.5; // Realistic local transit across town from peri-urban farm to doorstep
-    const tariff = Math.round(localKm * 2.0); // ₹7
+    const tariff = calculateDeliveryFee(localKm);
     const anchorCoords = farmCoords || customerCoords || { lat: 15.5057, lng: 80.0499 };
     return {
       distanceKm: localKm,
@@ -378,7 +396,7 @@ export function calculateAutomatedDistance(
     } else if (roadKm < 3.5) {
       roadKm = 3.5;
     }
-    const tariff = Math.round(roadKm * 2.0);
+    const tariff = calculateDeliveryFee(roadKm);
     return {
       distanceKm: roadKm,
       originLabel: originName,
@@ -405,7 +423,7 @@ export function calculateAutomatedDistance(
       roadKm = 3.5;
     }
 
-    const tariff = Math.round(roadKm * 2.0);
+    const tariff = calculateDeliveryFee(roadKm);
     return {
       distanceKm: roadKm,
       originLabel: originName,
@@ -465,7 +483,7 @@ export function calculateAutomatedDistance(
     approxKm = 310.0;
   }
 
-  const corridorTariff = Math.round(approxKm * 2.0);
+  const corridorTariff = calculateDeliveryFee(approxKm);
   return {
     distanceKm: approxKm,
     originLabel: originName,
@@ -523,7 +541,7 @@ export async function calculateAccurateRoadDistanceAsync(
   const directBetweenCoords = haversineDistanceKm(originCoords.lat, originCoords.lng, destCoords.lat, destCoords.lng);
   if (directBetweenCoords < 1.0) {
     const localKm = 3.5;
-    const tariff = Math.round(localKm * 2.0); // ₹7
+    const tariff = calculateDeliveryFee(localKm);
     return {
       distanceKm: localKm,
       originLabel: originName,
@@ -561,7 +579,7 @@ export async function calculateAccurateRoadDistanceAsync(
           ? `${Math.floor(durationMins / 60)} hr ${durationMins % 60} min` 
           : `${Math.max(10, durationMins)} min`;
 
-        const tariff = Math.round(roadDistanceKm * 2.0);
+        const tariff = calculateDeliveryFee(roadDistanceKm);
         return {
           distanceKm: roadDistanceKm,
           originLabel: originName,

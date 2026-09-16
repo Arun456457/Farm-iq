@@ -1,4 +1,4 @@
-import { calculateAccurateRoadDistanceAsync, getGoogleMapsDirectionsUrl } from '../src/utils/distance';
+import { calculateAccurateRoadDistanceAsync, calculateDeliveryFee, getGoogleMapsDirectionsUrl } from '../src/utils/distance';
 
 async function runTests() {
   console.log('=== TEST 1: ACCURATE ROAD DISTANCE & GOOGLE MAPS ROUTING ===');
@@ -11,7 +11,7 @@ async function runTests() {
   console.log('Calculated Road Distance:', distResult.distanceKm, 'km');
   console.log('Calculation Method:', distResult.method);
   console.log('Driving Duration:', distResult.durationText);
-  console.log('Delivery Fee (@ Rs 2/km): Rs', distResult.deliveryFee);
+  console.log('Delivery Fee: Rs', distResult.deliveryFee);
   console.log('Google Maps URL:', distResult.googleMapsDirectionsUrl);
   
   if (!distResult.googleMapsDirectionsUrl.includes('google.com/maps/dir/')) {
@@ -20,8 +20,8 @@ async function runTests() {
   if (distResult.distanceKm <= 0) {
     throw new Error('Distance should be greater than 0');
   }
-  if (distResult.deliveryFee !== Math.round(distResult.distanceKm * 2)) {
-    throw new Error(`Delivery fee mismatch: expected ${Math.round(distResult.distanceKm * 2)}, got ${distResult.deliveryFee}`);
+  if (distResult.deliveryFee !== calculateDeliveryFee(distResult.distanceKm)) {
+    throw new Error(`Delivery fee mismatch: expected ${calculateDeliveryFee(distResult.distanceKm)}, got ${distResult.deliveryFee}`);
   }
   console.log('✓ TEST 1 PASSED: Distance calculation, Google Maps directions, and delivery fee are verified!\n');
 

@@ -22,7 +22,7 @@ const STORAGE_FACILITIES = [
     capacity_available_quintals: 850,
     ideal_for: "Tomatoes, Capsicum, Apples, Pomegranate",
     image: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop&q=80",
-    transport_available: "Reefer Trucks Available (₹2/km)"
+    transport_available: "Reefer Trucks Available (Direct Dispatch)"
   },
   {
     id: "fac-2",
@@ -61,7 +61,7 @@ const STORAGE_FACILITIES = [
     capacity_available_quintals: 1950,
     ideal_for: "Grapes, Pomegranates, Fresh Vegetables",
     image: "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=600&auto=format&fit=crop&q=80",
-    transport_available: "Cold Reefer Van Dispatch (₹2/km)"
+    transport_available: "Cold Reefer Van Dispatch"
   },
   {
     id: "fac-5",
@@ -139,7 +139,7 @@ const STORAGE_FACILITIES = [
     capacity_available_quintals: 950,
     ideal_for: "Bananas, Mangoes, Papayas, Melons",
     image: "https://images.unsplash.com/photo-1603052875302-d376b7c0638a?w=600&auto=format&fit=crop&q=80",
-    transport_available: "South India Express Reefer (₹2/km)"
+    transport_available: "South India Express Reefer Dispatch"
   },
   {
     id: "fac-11",

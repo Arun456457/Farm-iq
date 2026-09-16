@@ -38,6 +38,15 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
         raise HTTPException(status_code=401, detail="Invalid session or user not found")
     return user
 
+def calculate_delivery_fee(distance_km: float) -> float:
+    km = max(1.0, round(float(distance_km or 1.0), 1))
+    if km <= 5.0:
+        return round(km * 5.0, 2)
+    elif km <= 15.0:
+        return round(25.0 + (km - 5.0) * 3.0, 2)
+    else:
+        return round(55.0 + (km - 15.0) * 2.0, 2)
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "framework": "FastAPI with SQLAlchemy and SQLite"}
@@ -137,7 +146,7 @@ def place_order(order_in: schemas.OrderCreate, current_user: models.User = Depen
     
     # Calculate pricing
     dist = order_in.distance_km or 14.5
-    delivery_fee = dist * 2.0 # Exactly 2 rupees per kilometer
+    delivery_fee = calculate_delivery_fee(dist)
     prod_total = product.price * order_in.quantity
     grand_total = prod_total + delivery_fee
 

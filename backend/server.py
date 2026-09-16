@@ -179,6 +179,15 @@ def init_db():
     conn.commit()
     conn.close()
 
+def calculate_delivery_fee(distance_km: float) -> float:
+    km = max(1.0, round(float(distance_km or 1.0), 1))
+    if km <= 5.0:
+        return round(km * 5.0, 2)
+    elif km <= 15.0:
+        return round(25.0 + (km - 5.0) * 3.0, 2)
+    else:
+        return round(55.0 + (km - 15.0) * 2.0, 2)
+
 init_db()
 
 # Crop preservation metadata guide
@@ -776,7 +785,7 @@ class FarmiQRequestHandler(http.server.BaseHTTPRequestHandler):
             # 2. Transportation price = 2 rupees per kilometer (explicitly requested!)
             # Dynamic simulated distance between farmer location & customer
             distance_km = round(data.get('distance_km', 14.5), 1)
-            delivery_charge = round(distance_km * 2.0, 2)  # ₹2 per km!
+            delivery_charge = calculate_delivery_fee(distance_km)
             product_total = round(order_qty * product["price"], 2)
             grand_total = round(product_total + delivery_charge, 2)
 

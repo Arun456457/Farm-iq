@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash } from 'lucide-react';
+import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash, Eye, EyeOff } from 'lucide-react';
 import { User, UserRole, LanguageCode } from '../types';
 import { api, setAuthToken, setStoredUser } from '../api';
 import { translations } from '../translations';
@@ -31,6 +31,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [farmName, setFarmName] = useState('');
   const [location, setLocation] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -561,13 +562,26 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <div className="relative">
               <Lock className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
               <input
-                type="password"
+                type={showPassword ? "text" : "password"}
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
+                className="w-full pl-9 pr-10 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-2.5 top-2.5 text-stone-400 hover:text-stone-600 focus:outline-none p-0.5 cursor-pointer"
+                title={showPassword ? "Hide password" : "Show password"}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? (
+                  <EyeOff className="w-4 h-4" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+              </button>
             </div>
           </div>
 

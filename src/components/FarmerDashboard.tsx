@@ -2346,7 +2346,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                     <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
                       <span>Produce: <strong className="text-stone-800">₹{o.product_total}</strong></span>
                       <span>•</span>
-                      <span>Delivery ({o.distance_km} km @ ₹2/km): <strong className="text-stone-800">₹{o.delivery_charge}</strong></span>
+                      <span>Delivery ({o.distance_km} km): <strong className="text-stone-800">₹{o.delivery_charge}</strong></span>
                       <span>•</span>
                       <span>Grand Total: <strong className="text-emerald-800 font-bold text-sm">₹{o.grand_total}</strong></span>
                       <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
@@ -2560,7 +2560,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                           className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-2 cursor-pointer disabled:bg-stone-300"
                         >
                           <CheckCheck className="w-4 h-4" />
-                          <span>{acceptingReqId === req.id ? 'Claiming...' : 'Accept & Claim This Order (₹2/km Delivery)'}</span>
+                          <span>{acceptingReqId === req.id ? 'Claiming...' : 'Accept & Claim This Order'}</span>
                         </button>
                       ) : isClaimedByMe ? (
                         <div className="flex items-center justify-between text-xs bg-emerald-50 text-emerald-900 p-2.5 rounded-xl border border-emerald-200 font-medium">

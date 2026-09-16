@@ -9,7 +9,7 @@ import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, Invoi
 import { api, setStoredUser } from '../api';
 import { translations } from '../translations';
 import { LiveTrackingModal } from './LiveTrackingModal';
-import { calculateAutomatedDistance, calculateAccurateRoadDistanceAsync, LatLng, AutomatedDistanceResult, getGoogleMapsDirectionsUrl } from '../utils/distance';
+import { calculateAutomatedDistance, calculateAccurateRoadDistanceAsync, calculateDeliveryFee, LatLng, AutomatedDistanceResult, getGoogleMapsDirectionsUrl } from '../utils/distance';
 import { InvoiceModal } from './InvoiceModal';
 import { UPIPaymentModal } from './UPIPaymentModal';
 import { LocationPickerModal } from './LocationPickerModal';
@@ -317,7 +317,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   // Calculate pricing
   const unitPrice = selectedProduct?.price || 0;
   const productTotal = Math.round(orderQuantity * unitPrice);
-  const deliveryCharge = Math.round(deliveryDistanceKm * 2.0); // Exactly ₹2 per km
+  const deliveryCharge = calculateDeliveryFee(deliveryDistanceKm);
   const grandTotal = productTotal + deliveryCharge;
 
   const handleOpenOrder = (prod: Product) => {
@@ -445,7 +445,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         {/* Delivery banner */}
         <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 shrink-0">
           <Truck className="w-3.5 h-3.5" />
-          <span>Direct Farm Dispatch: Fixed ₹2 / km delivery charge</span>
+          <span>Direct Farm Dispatch: Low-Cost Doorstep Delivery</span>
         </div>
       </div>
 
@@ -731,7 +731,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     </h4>
 
                     <p className="text-xs text-stone-600">
-                      Farmer: <strong className="text-stone-800">{o.farmer_name}</strong> • Direct Transport: {o.distance_km} km @ ₹2/km
+                      Farmer: <strong className="text-stone-800">{o.farmer_name}</strong> • Direct Transport: {o.distance_km} km
                     </p>
 
                     <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
@@ -1449,7 +1449,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       </div>
                     </div>
                     <div className="text-right">
-                      <span className="text-[11px] text-stone-500 block">Logistics Tariff (@ ₹2/km)</span>
+                      <span className="text-[11px] text-stone-500 block">Logistics Delivery Tariff</span>
                       <span className="text-sm font-extrabold text-stone-900">₹{deliveryCharge}</span>
                     </div>
                   </div>
@@ -1500,7 +1500,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     <span className="font-semibold">₹{productTotal}</span>
                   </div>
                   <div className="flex justify-between text-stone-700">
-                    <span>Delivery Charge ({deliveryDistanceKm} km × ₹2.00):</span>
+                    <span>Delivery Charge ({deliveryDistanceKm} km):</span>
                     <span className="font-semibold">₹{deliveryCharge}</span>
                   </div>
                   <div className="pt-2 border-t border-teal-200 flex justify-between text-stone-900 font-bold text-sm">
@@ -1589,7 +1589,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                   <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 flex items-center justify-between">
                     <div>
                       <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
-                        Order Total (₹2/km Delivery Included)
+                        Order Total (Delivery Included)
                       </span>
                       <span className="text-[10px] text-emerald-700">UPI Payment Due on Confirmation</span>
                     </div>

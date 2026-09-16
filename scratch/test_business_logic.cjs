@@ -41,11 +41,15 @@ async function runTests() {
   const dist = haversineDistance(20.1444, 74.2255, 18.5204, 73.8567);
   assert('Haversine distance calculation is accurate within +/- 5km', dist >= 180 && dist <= 195, `Calculated: ${dist} km`);
 
-  // 4. Transparent Direct Logistics Pricing Formula (₹2/km)
-  const deliveryKm = 25;
-  const ratePerKm = 2;
-  const deliveryFee = deliveryKm * ratePerKm;
-  assert('Logistics Pricing Formula applies ₹2/km standard', deliveryFee === 50, `Expected ₹50, got ₹${deliveryFee}`);
+  // 4. Fair Distance-Tiered Logistics Pricing Algorithm (<=5km: ₹5/km, 5-15km: ₹3/km, >15km: ₹2/km)
+  function calculateDeliveryFee(km) {
+    if (km <= 5) return Math.round(km * 5);
+    if (km <= 15) return Math.round(25 + (km - 5) * 3);
+    return Math.round(55 + (km - 15) * 2);
+  }
+  assert('Logistics Pricing Formula applies ₹5/km for <=5km', calculateDeliveryFee(4) === 20, `Expected ₹20, got ₹${calculateDeliveryFee(4)}`);
+  assert('Logistics Pricing Formula applies tiered rate for 10km', calculateDeliveryFee(10) === 40, `Expected ₹40, got ₹${calculateDeliveryFee(10)}`);
+  assert('Logistics Pricing Formula applies far distance rate for 25km', calculateDeliveryFee(25) === 75, `Expected ₹75, got ₹${calculateDeliveryFee(25)}`);
 
   // 5. Digital Escrow Milestones (20% Advance, 50% Dispatch, 30% Delivery)
   const contractTotal = 50000;

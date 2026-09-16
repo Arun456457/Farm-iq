@@ -110,7 +110,7 @@ async function runTests() {
   console.log('✓ Order created successfully! ID:', order.id);
   console.log('✓ Order Initial Status:', order.status);
   console.log('✓ Order Payment Status:', order.payment_status);
-  console.log('✓ Order Grand Total (₹2/km delivery included): ₹' + order.grand_total);
+  console.log('✓ Order Grand Total (delivery included): ₹' + order.grand_total);
 
   // 5. New-Order Notification for Farmer (Requirement 2)
   console.log('\n5. Checking Farmer Real-Time New-Order Notification...');
@@ -144,7 +144,7 @@ async function runTests() {
   console.log('   - Customer Details:', acceptData.invoice?.customer_name, '|', acceptData.invoice?.customer_phone, '|', acceptData.invoice?.customer_address);
   console.log('   - Items Count:', acceptData.invoice?.items?.length);
   console.log('   - Subtotal: ₹' + acceptData.invoice?.product_subtotal);
-  console.log('   - Delivery Fee (₹2/km): ₹' + acceptData.invoice?.delivery_fee);
+  console.log('   - Delivery Fee: ₹' + acceptData.invoice?.delivery_fee);
   console.log('   - Taxes (Fresh Agri 0% GST): ₹' + acceptData.invoice?.taxes);
   console.log('   - Final Amount: ₹' + acceptData.invoice?.final_amount);
   console.log('   - Invoice Status:', acceptData.invoice?.order_status);

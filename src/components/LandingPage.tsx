@@ -25,7 +25,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <Sprout className="w-4 h-4 text-emerald-700 shrink-0" />
           <span>Direct Farmer ↔ Customer Agriculture Hub</span>
           <span className="hidden sm:inline w-1.5 h-1.5 rounded-full bg-emerald-600" />
-          <span className="font-semibold text-emerald-800">Fixed ₹2/km Direct Transport</span>
+          <span className="font-semibold text-emerald-800">Low-Cost Direct Transport</span>
         </div>
 
         {/* Brand Logo Emblem */}
@@ -129,7 +129,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                Transparent ₹2 per kilometer direct farm delivery rate
+                Affordable distance-based direct farm delivery
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
@@ -152,7 +152,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <Truck className="w-5 h-5 text-emerald-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">Direct ₹2/km Logistics</h3>
+            <h3 className="text-xs font-bold text-stone-900">Direct Farm Logistics</h3>
             <p className="text-[11px] text-stone-600 mt-1">Fair delivery charges calculated automatically by distance.</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
