@@ -10,3 +10,4 @@ data/farmiq.db*
 .env*
 !.env.example
 .vscode/
+scratch/

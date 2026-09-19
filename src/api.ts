@@ -274,5 +274,19 @@ export const api = {
   sendChat: (message: string, context?: any, userRole?: string) => request<{ reply: string }>('/chat', {
     method: 'POST',
     body: JSON.stringify({ message, context, userRole })
+  }),
+
+  // Cloud Database Status & Diagnostics
+  getDbStatus: () => request<{
+    provider: 'mongodb' | 'postgres' | 'local';
+    connected: boolean;
+    statusMessage: string;
+    databaseName?: string;
+    lastSyncedAt?: string;
+    lastError?: string | null;
+    counts: Record<string, number>;
+  }>('/system/db-status'),
+  syncDb: () => request<{ success: boolean; message: string; status: any }>('/system/db-sync', {
+    method: 'POST'
   })
 };

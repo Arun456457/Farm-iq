@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
 import { mandiMarkets, initialMandiRates, findNearestMandi, getMandiAreas, haversineDistanceKm, resolveMandiByLocation, getLocalMandiRateForCrop } from "./src/data/mandiDatabase.ts";
+import { cloudDb, DBState } from "./cloudDb.ts";
 
 dotenv.config();
 
@@ -16,22 +17,6 @@ const DATA_FILE = path.join(projectRoot, "data", "app_state.json");
 const USERS_FILE = path.join(projectRoot, "users.json");
 const DATA_USERS_FILE = path.join(projectRoot, "data", "users.json");
 fs.mkdirSync(path.join(projectRoot, "data"), { recursive: true });
-
-interface DBState {
-  users: any[];
-  products: any[];
-  orders: any[];
-  storage_bookings: any[];
-  contracts: any[];
-  disputes: any[];
-  requirements: any[];
-  lots: any[];
-  verified_buyers: any[];
-  invoices: any[];
-  notifications: any[];
-  payments: any[];
-  fpo_collectives: any[];
-}
 
 const defaultState: DBState = {
   users: [
@@ -227,8 +212,7 @@ function syncUsersFile(users: any[]) {
 
 function saveState(state: DBState) {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf-8");
-    syncUsersFile(state.users);
+    cloudDb.save(state);
   } catch (err) {
     console.error("Error saving state file:", err);
   }
@@ -441,6 +425,16 @@ function getAppBaseUrl(req?: express.Request): string {
 }
 
 async function startServer() {
+  // Connect to Cloud Database (MongoDB Atlas / PostgreSQL) or fallback to local
+  try {
+    const cloudLoaded = await cloudDb.init(db);
+    if (cloudLoaded) {
+      db = cloudLoaded;
+    }
+  } catch (err: any) {
+    console.error("[Server] Cloud DB initialization warning:", err.message);
+  }
+
   const app = express();
   app.use(express.json({ limit: "25mb" }));
 
@@ -479,6 +473,20 @@ async function startServer() {
   };
 
   // --- REST API ENDPOINTS ---
+
+  // CLOUD DATABASE & SYSTEM DIAGNOSTICS
+  app.get("/api/system/db-status", (req, res) => {
+    res.json(cloudDb.getStatus(db));
+  });
+
+  app.post("/api/system/db-sync", async (req, res) => {
+    try {
+      await cloudDb.flushCloudSave();
+      res.json({ success: true, message: "Synchronized with cloud database", status: cloudDb.getStatus(db) });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // AUTH
   app.post("/api/auth/register", (req, res) => {
@@ -3237,10 +3245,12 @@ Answer warmly and concisely in simple terms. Provide actionable farming and mark
   }
 
   app.listen(PORT, "0.0.0.0", () => {
+    const dbStatus = cloudDb.getStatus(db);
     console.log(`\n  ======================================================`);
     console.log(`  🌾 FarmiQ Platform is running!`);
     console.log(`  ➜ Local URL:   http://localhost:${PORT}/`);
     console.log(`  ➜ Network URL: http://127.0.0.1:${PORT}/`);
+    console.log(`  ➜ Cloud DB:    ${dbStatus.provider.toUpperCase()} (${dbStatus.statusMessage})`);
     console.log(`  ======================================================`);
     console.log(`  💡 Notice on "Connection is not secure" / "Not Secure":`);
     console.log(`     Make sure to open with "http://" (NOT "https://").`);
