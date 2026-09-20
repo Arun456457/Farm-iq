@@ -420,8 +420,7 @@ function getAppBaseUrl(req?: express.Request): string {
       const proto = (req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'https')) as string;
       return `${proto}://${forwardedHost}`.replace(/\/+$/, '');
     }
-  }
-  return 'https://farm-iq-pdaq.onrender.com';
+  return process.env.APP_URL || 'https://farmiq-z14k.onrender.com';
 }
 
 async function startServer() {
