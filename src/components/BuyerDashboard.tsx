@@ -2,26 +2,53 @@ import React, { useState, useEffect } from 'react';
 import { 
   Building2, ShieldCheck, Award, Package, ShoppingBag, Truck, CheckCircle, 
   MapPin, Calendar, Clock, AlertCircle, RefreshCw, FileText, Check, ArrowRight,
-  Users, ChevronRight, Phone, Download, Search, Filter, ExternalLink, X, Sparkles, Navigation, Edit3
+  Users, ChevronRight, Phone, Download, Search, Filter, ExternalLink, X, Sparkles, Navigation, Edit3,
+  Compass, ChevronDown, ChevronUp, Layers
 } from 'lucide-react';
 import { User, Order, FPOLot, LanguageCode, CustomerRequirement } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
-import { calculateDeliveryFee } from '../utils/distance';
+import { calculateAutomatedDistance, calculateAccurateRoadDistanceAsync, calculateDeliveryFee, AutomatedDistanceResult } from '../utils/distance';
+import { LocationPickerModal } from './LocationPickerModal';
 
 interface BuyerDashboardProps {
   user: User;
   language: LanguageCode;
+  activeSubTab?: 'buyer-orders' | 'buyer-fpo' | 'orders' | 'fpo-lots';
+  onSubTabChange?: (tab: string) => void;
   onNavigateToContracts?: () => void;
+  onContractCreated?: () => void;
 }
 
 export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
   user,
   language,
-  onNavigateToContracts
+  activeSubTab,
+  onSubTabChange,
+  onNavigateToContracts,
+  onContractCreated
 }) => {
   const t = translations[language] || translations.en;
-  const [activeTab, setActiveTab] = useState<'orders' | 'fpo-lots' | 'demands'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'fpo-lots'>(() => {
+    if (activeSubTab === 'buyer-fpo' || activeSubTab === 'fpo-lots') return 'fpo-lots';
+    return 'orders';
+  });
+
+  // Keep internal tab in sync when activeSubTab changes from parent/Navbar
+  useEffect(() => {
+    if (activeSubTab === 'buyer-fpo' || activeSubTab === 'fpo-lots') {
+      setActiveTab('fpo-lots');
+    } else if (activeSubTab === 'buyer-orders' || activeSubTab === 'orders') {
+      setActiveTab('orders');
+    }
+  }, [activeSubTab]);
+
+  const handleTabSwitch = (tab: 'orders' | 'fpo-lots') => {
+    setActiveTab(tab);
+    if (onSubTabChange) {
+      onSubTabChange(tab === 'fpo-lots' ? 'buyer-fpo' : 'buyer-orders');
+    }
+  };
   
   // Data states
   const [orders, setOrders] = useState<Order[]>([]);
@@ -36,12 +63,97 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
   const [confirmingDeliveryId, setConfirmingDeliveryId] = useState<number | null>(null);
   const [selectedLotDetails, setSelectedLotDetails] = useState<FPOLot | null>(null);
 
-  // Delivery address change during order placement
+  // Delivery address change & procurement options during order placement
   const [procureLotModal, setProcureLotModal] = useState<FPOLot | null>(null);
   const [procureDeliveryAddress, setProcureDeliveryAddress] = useState<string>(
-    user.delivery_address || user.location || 'Central Cold Storage & Logistics Hub, Sector 19, APMC Vashi, Navi Mumbai - 400703'
+    user.delivery_address || user.location || 'Sector 19, Central Cold Chain Depot, APMC Vashi, Navi Mumbai - 400703'
   );
   const [procureDistanceKm, setProcureDistanceKm] = useState<number>(45);
+  const [distanceInfo, setDistanceInfo] = useState<AutomatedDistanceResult | null>(null);
+  const [isCalculatingDistance, setIsCalculatingDistance] = useState<boolean>(false);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState<boolean>(false);
+  const [isDetectingGps, setIsDetectingGps] = useState<boolean>(false);
+  const [gpsStatusMsg, setGpsStatusMsg] = useState<string | null>(null);
+  const [escrowPaymentModel, setEscrowPaymentModel] = useState<'100_ESCROW' | '20_ADVANCE_80_DELIVERY'>('100_ESCROW');
+  const [logisticsMode, setLogisticsMode] = useState<'REEFER_COLD_CHAIN' | 'STANDARD_HEAVY_HAUL' | 'BUYER_SELF_FLEET'>('REEFER_COLD_CHAIN');
+  const [inspectionProtocol, setInspectionProtocol] = useState<'APMC_WEIGHBRIDGE' | 'DESTINATION_ACCEPTANCE'>('APMC_WEIGHBRIDGE');
+  const [logisticsNotes, setLogisticsNotes] = useState<string>('');
+  const [showFarmerBreakdown, setShowFarmerBreakdown] = useState<boolean>(false);
+
+  // Auto-calculate road distance between lot origin and buyer delivery address
+  useEffect(() => {
+    if (!procureLotModal || !procureDeliveryAddress.trim()) return;
+    let isCurrent = true;
+    const origin = procureLotModal.location || 'Lasalgaon, Nashik';
+    setIsCalculatingDistance(true);
+
+    const quickResult = calculateAutomatedDistance(origin, procureDeliveryAddress);
+    if (quickResult && quickResult.distanceKm > 0) {
+      setProcureDistanceKm(quickResult.distanceKm);
+      setDistanceInfo(quickResult);
+    }
+
+    calculateAccurateRoadDistanceAsync(origin, procureDeliveryAddress)
+      .then((accResult) => {
+        if (isCurrent && accResult && accResult.distanceKm > 0) {
+          setProcureDistanceKm(accResult.distanceKm);
+          setDistanceInfo(accResult);
+        }
+      })
+      .catch((err) => console.warn('Distance calc error:', err))
+      .finally(() => {
+        if (isCurrent) setIsCalculatingDistance(false);
+      });
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [procureLotModal?.id, procureDeliveryAddress]);
+
+  // GPS auto-detection
+  const handleDetectGps = () => {
+    if (!navigator.geolocation) {
+      setGpsStatusMsg('Geolocation is not supported by your browser');
+      return;
+    }
+    setIsDetectingGps(true);
+    setGpsStatusMsg('Detecting device GPS coordinates...');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+            { headers: { 'Accept-Language': 'en' } }
+          );
+          if (res.ok) {
+            const data = await res.json();
+            const addr = data.address || {};
+            const road = addr.road || addr.neighbourhood || addr.suburb || '';
+            const locality = addr.city_district || addr.suburb || addr.town || addr.village || '';
+            const cityName = addr.city || addr.state_district || 'Maharashtra';
+            const formatted = [road, locality, cityName].filter(Boolean).join(', ') || data.display_name;
+            setProcureDeliveryAddress(formatted || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+            setGpsStatusMsg(`✓ GPS Location Locked (${latitude.toFixed(3)}°N, ${longitude.toFixed(3)}°E)`);
+          } else {
+            setProcureDeliveryAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+            setGpsStatusMsg(`✓ GPS Coordinates Locked`);
+          }
+        } catch {
+          setProcureDeliveryAddress(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+          setGpsStatusMsg(`✓ GPS Coordinates Captured`);
+        } finally {
+          setIsDetectingGps(false);
+        }
+      },
+      (err) => {
+        console.warn('GPS error:', err);
+        setIsDetectingGps(false);
+        setGpsStatusMsg('Location access denied. Please select from presets or map.');
+      },
+      { timeout: 8000, enableHighAccuracy: true }
+    );
+  };
 
   // Lot filter states
   const [lotSearch, setLotSearch] = useState('');
@@ -67,9 +179,57 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
 
   useEffect(() => {
     loadBuyerData(false);
-    // Real-time polling every 3.5 seconds to reflect Farmer order preparation & transit updates immediately
+
+    // 1. Cross-tab & local real-time sync via BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('farmiq_bus');
+      bc.onmessage = (event) => {
+        if (event.data?.type) {
+          loadBuyerData(true);
+        }
+      };
+    } catch {
+      // BroadcastChannel unsupported
+    }
+
+    // 2. Server-Sent Events (SSE) for instant backend push notifications
+    let evtSource: EventSource | null = null;
+    try {
+      evtSource = new EventSource('/api/notifications/stream');
+      evtSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed && (parsed.type || parsed.data)) {
+            // Instant re-render on any lot, order, contract or status update
+            loadBuyerData(true);
+          }
+        } catch {
+          // heartbeat/keepalive comment
+        }
+      };
+      evtSource.onerror = () => {
+        // SSE reconnect handles automatically
+      };
+    } catch {
+      // SSE unsupported fallback
+    }
+
+    // 3. In-window custom event listener
+    const handleLocalStateChange = () => {
+      loadBuyerData(true);
+    };
+    window.addEventListener('farmiq_state_change', handleLocalStateChange);
+
+    // 4. Polling fallback (3.5s) to guarantee consistency
     const interval = setInterval(() => loadBuyerData(true), 3500);
-    return () => clearInterval(interval);
+
+    return () => {
+      clearInterval(interval);
+      if (evtSource) evtSource.close();
+      if (bc) bc.close();
+      window.removeEventListener('farmiq_state_change', handleLocalStateChange);
+    };
   }, [user]);
 
   const getHarvestTimingInfo = (harvestDateStr?: string) => {
@@ -90,10 +250,17 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
   // Open modal so buyer can set/change delivery address when taking lot order
   const handleOpenProcureModal = (lot: FPOLot) => {
     setProcureLotModal(lot);
-    setProcureDeliveryAddress(
-      user.delivery_address || user.location || 'Central Cold Storage & Logistics Hub, Sector 19, APMC Vashi, Navi Mumbai - 400703'
-    );
-    setProcureDistanceKm(45);
+    const defaultAddr = user.delivery_address || user.location || 'Sector 19, Central Cold Chain Depot, APMC Vashi, Navi Mumbai - 400703';
+    setProcureDeliveryAddress(defaultAddr);
+    const initialDist = calculateAutomatedDistance(lot.location || 'Lasalgaon, Nashik', defaultAddr);
+    setProcureDistanceKm(initialDist.distanceKm || 45);
+    setDistanceInfo(initialDist);
+    setEscrowPaymentModel('100_ESCROW');
+    setLogisticsMode('REEFER_COLD_CHAIN');
+    setInspectionProtocol('APMC_WEIGHBRIDGE');
+    setLogisticsNotes('');
+    setShowFarmerBreakdown(false);
+    setGpsStatusMsg(null);
     setActionSuccessMsg(null);
     setActionErrorMsg(null);
   };
@@ -111,14 +278,43 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
     try {
       const res = await api.procureLot(procureLotModal.id, {
         delivery_address: procureDeliveryAddress.trim(),
-        distance_km: procureDistanceKm
-      });
+        distance_km: procureDistanceKm,
+        logistics_mode: logisticsMode,
+        escrow_model: escrowPaymentModel,
+        inspection_protocol: inspectionProtocol,
+        logistics_notes: logisticsNotes.trim()
+      } as any);
+
       setActionSuccessMsg(
         `✓ Institutional Procurement Confirmed! Order #${res.order?.id || 'NEW'} created under Escrow Contract #${res.contract?.id || 'ESC'}. Delivery routed to "${procureDeliveryAddress.trim()}". FPO farmers have been notified for dispatch.`
       );
+
+      // Instant optimistic UI render: immediately insert new order and lock lot in local state
+      if (res.order) {
+        setOrders(prev => [res.order, ...prev.filter(o => o.id !== res.order.id)]);
+      }
+      if (res.lot) {
+        setLots(prev => prev.map(l => l.id === procureLotModal.id ? res.lot : l));
+      } else {
+        setLots(prev => prev.map(l => l.id === procureLotModal.id ? { ...l, status: 'CONTRACTED' as const } : l));
+      }
+
       setProcureLotModal(null);
+
+      // Cross-tab & local component broadcast
+      try {
+        const bus = new BroadcastChannel('farmiq_bus');
+        bus.postMessage({ type: 'LOT_PROCURED', order: res.order, lot: res.lot, contract: res.contract });
+        bus.close();
+      } catch {}
+      window.dispatchEvent(new CustomEvent('farmiq_state_change', { detail: { type: 'LOT_PROCURED', order: res.order } }));
+
+      // Fresh server re-sync
       await loadBuyerData(true);
-      setActiveTab('orders');
+      handleTabSwitch('orders');
+      if (onContractCreated) {
+        onContractCreated();
+      }
     } catch (err: any) {
       setActionErrorMsg(err.message || 'Failed to procure produce lot');
     } finally {
@@ -134,6 +330,17 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
     try {
       await api.updateOrderStatus(orderId, 'DELIVERED');
       setActionSuccessMsg(`✓ Goods received verified! Escrow payment released to FPO contributing farmers.`);
+      
+      // Instant optimistic update
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'DELIVERED', delivered_at: new Date().toISOString() } : o));
+
+      try {
+        const bus = new BroadcastChannel('farmiq_bus');
+        bus.postMessage({ type: 'ORDER_STATUS_UPDATED', orderId, status: 'DELIVERED' });
+        bus.close();
+      } catch {}
+      window.dispatchEvent(new CustomEvent('farmiq_state_change', { detail: { type: 'ORDER_STATUS_UPDATED', orderId, status: 'DELIVERED' } }));
+
       await loadBuyerData(true);
     } catch (err: any) {
       setActionErrorMsg(err.message || 'Failed to confirm receipt');
@@ -243,8 +450,8 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
       {/* Navigation Sub-Tabs */}
       <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
         <button
-          onClick={() => setActiveTab('orders')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition ${
+          onClick={() => handleTabSwitch('orders')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
             activeTab === 'orders'
               ? 'bg-stone-900 text-white shadow-md'
               : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
@@ -260,8 +467,8 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
         </button>
 
         <button
-          onClick={() => setActiveTab('fpo-lots')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition ${
+          onClick={() => handleTabSwitch('fpo-lots')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer ${
             activeTab === 'fpo-lots'
               ? 'bg-stone-900 text-white shadow-md'
               : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
@@ -306,8 +513,8 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                 Browse available graded FPO produce lots below or let FPO farmers match their pooled harvest with your institutional demand profile.
               </p>
               <button
-                onClick={() => setActiveTab('fpo-lots')}
-                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm transition"
+                onClick={() => handleTabSwitch('fpo-lots')}
+                className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm transition cursor-pointer"
               >
                 Explore Available FPO Lots
               </button>
@@ -732,206 +939,485 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
         </div>
       )}
 
-      {/* BUYER CONSIGNMENT & DELIVERY ADDRESS MODAL (Requested: Buyer can change delivery address while taking order) */}
-      {procureLotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs overflow-y-auto">
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-stone-200 overflow-hidden my-8 animate-in fade-in zoom-in-95">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-emerald-800 to-teal-700 p-5 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-white/10 rounded-xl">
-                  <ShoppingBag className="w-5 h-5 text-emerald-200" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-base">Procure Bulk Produce Lot #{procureLotModal.id}</h3>
-                  <p className="text-xs text-emerald-100">Direct FPO Contract with 100% Escrow Protection</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setProcureLotModal(null)}
-                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* BUYER CONSIGNMENT & DELIVERY ADDRESS MODAL */}
+      {procureLotModal && (() => {
+        const modalMemberFarmers = (procureLotModal.member_farmers && procureLotModal.member_farmers.length > 0)
+          ? procureLotModal.member_farmers
+          : [
+              { farmer_name: procureLotModal.farmer_name || 'Lead Cluster Farmer', contributed_quantity: procureLotModal.quantity, unit: procureLotModal.unit, farm_location: procureLotModal.location || 'Cooperative Cluster', is_lead: true }
+            ];
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              {/* Lot Overview */}
-              <div className="p-3.5 bg-stone-50 rounded-xl border border-stone-200 flex items-start justify-between">
-                <div>
-                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 uppercase">
-                    {procureLotModal.quality_grade}
-                  </span>
-                  <h4 className="font-extrabold text-stone-900 text-base mt-1">
-                    {procureLotModal.crop_name} ({procureLotModal.variety})
-                  </h4>
-                  <p className="text-xs text-stone-500">
-                    FPO: <strong className="text-stone-700">{procureLotModal.fpo_name}</strong> • {procureLotModal.member_farmers} Contributing Farmers
-                  </p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs text-stone-500 block">Lot Volume</span>
-                  <span className="text-base font-extrabold text-emerald-800">
-                    {procureLotModal.quantity} {procureLotModal.unit}
-                  </span>
-                  <span className="text-[11px] text-stone-500 block">@ ₹{procureLotModal.base_price_per_unit}/{procureLotModal.unit}</span>
-                </div>
-              </div>
+        const calculatedDeliveryFee = logisticsMode === 'BUYER_SELF_FLEET' ? 0 : calculateDeliveryFee(procureDistanceKm);
+        const produceVal = Math.round(procureLotModal.quantity * procureLotModal.base_price_per_unit);
+        const totalEscrowDeposit = produceVal + calculatedDeliveryFee;
 
-              {/* Harvest Date & Timing Banner */}
-              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-emerald-700 shrink-0" />
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-900/60 backdrop-blur-xs overflow-y-auto">
+            <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-stone-200 overflow-hidden my-6 animate-in fade-in zoom-in-95 flex flex-col max-h-[92vh]">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-stone-900 p-4 sm:p-5 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-white/10 rounded-2xl ring-1 ring-white/20">
+                    <ShoppingBag className="w-5 h-5 text-emerald-300" />
+                  </div>
                   <div>
-                    <span className="text-stone-600">Harvest Date: </span>
-                    <strong className="text-emerald-950 font-bold">
-                      {getHarvestTimingInfo(procureLotModal.harvest_date).label}
-                    </strong>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-base sm:text-lg">Procure Lot #{procureLotModal.id}</h3>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-200 border border-emerald-400/30 uppercase tracking-wide">
+                        {procureLotModal.quality_grade}
+                      </span>
+                    </div>
+                    <p className="text-xs text-emerald-100/90">FPO Collective Sourcing with Automated Logistics & 100% Escrow</p>
                   </div>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900">
-                  {getHarvestTimingInfo(procureLotModal.harvest_date).daysText}
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setProcureLotModal(null)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* Delivery Address (Buyers can change their delivery address while taking an order) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
+              {/* Modal Scrollable Body */}
+              <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 text-left">
+                {/* Lot Overview & Pooled Farmers Banner */}
+                <div className="p-4 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div>
+                      <h4 className="font-extrabold text-stone-900 text-base sm:text-lg flex items-center gap-2">
+                        <span>{procureLotModal.crop_name}</span>
+                        <span className="text-stone-500 font-normal text-xs sm:text-sm">({procureLotModal.variety})</span>
+                      </h4>
+                      <div className="mt-1 flex items-center gap-2 flex-wrap text-xs text-stone-600">
+                        <span>FPO Cluster: <strong className="text-stone-800 font-bold">{procureLotModal.fpo_name}</strong></span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5 text-stone-400" /> {procureLotModal.location}</span>
+                      </div>
+                    </div>
+
+                    <div className="sm:text-right shrink-0 bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border sm:border-0 border-stone-200">
+                      <span className="text-[11px] text-stone-500 block font-medium">Procurement Lot Volume</span>
+                      <span className="text-lg font-black text-emerald-800">
+                        {procureLotModal.quantity} {procureLotModal.unit}
+                      </span>
+                      <span className="text-xs text-stone-500 block font-semibold">@ ₹{procureLotModal.base_price_per_unit}/{procureLotModal.unit}</span>
+                    </div>
+                  </div>
+
+                  {/* Contributing Farmers Accordion */}
+                  <div className="pt-2 border-t border-stone-200">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowFarmerBreakdown(!showFarmerBreakdown)}
+                        className="text-xs font-bold text-emerald-800 hover:text-emerald-950 inline-flex items-center gap-1.5 transition cursor-pointer"
+                      >
+                        <Users className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{modalMemberFarmers.length} Contributing Farmers Pooled</span>
+                        <span className="text-[10px] text-emerald-600 font-normal underline">
+                          {showFarmerBreakdown ? '(hide details)' : '(view farmer breakdown)'}
+                        </span>
+                      </button>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900">
+                        {procureLotModal.certified_by || 'APMC Certified'}
+                      </span>
+                    </div>
+
+                    {showFarmerBreakdown && (
+                      <div className="mt-2.5 space-y-1.5 animate-in fade-in slide-in-from-top-1">
+                        {modalMemberFarmers.map((mf, fIdx) => (
+                          <div key={fIdx} className="flex items-center justify-between text-xs bg-white px-3 py-2 rounded-xl border border-stone-200 shadow-2xs">
+                            <div className="flex items-center gap-2">
+                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                                mf.is_lead ? 'bg-amber-600 text-white' : 'bg-emerald-100 text-emerald-800'
+                              }`}>
+                                {mf.is_lead ? '★' : (fIdx + 1)}
+                              </span>
+                              <div>
+                                <div className="font-semibold text-stone-800 flex items-center gap-1.5">
+                                  <span>{mf.farmer_name}</span>
+                                  {mf.is_lead && <span className="text-[9px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.2 rounded">Lead Farmer</span>}
+                                </div>
+                                <div className="text-stone-400 text-[10px]">
+                                  {mf.farm_location || mf.farm_name || 'Associated Farm Cluster'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="font-bold text-emerald-800">
+                                {mf.contributed_quantity} {mf.unit || procureLotModal.unit}
+                              </span>
+                              {mf.share_pct !== undefined && (
+                                <span className="text-[10px] text-stone-400 block">{mf.share_pct}% share</span>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* SECTION 1: DELIVERY DESTINATION & WAREHOUSE ADDRESS */}
+                <div className="space-y-2.5 p-4 rounded-2xl border border-teal-200/90 bg-teal-50/30">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <label className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-teal-700" />
+                      <span>Delivery Destination / Warehouse Address *</span>
+                    </label>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setIsMapPickerOpen(true)}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-teal-700 hover:bg-teal-800 text-white shadow-xs transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <MapPin className="w-3 h-3" />
+                        <span>Select on Map</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleDetectGps}
+                        disabled={isDetectingGps}
+                        className="px-2.5 py-1 rounded-lg text-xs font-bold bg-white hover:bg-stone-100 text-stone-700 border border-stone-300 transition flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                      >
+                        <Compass className={`w-3 h-3 text-teal-700 ${isDetectingGps ? 'animate-spin' : ''}`} />
+                        <span>{isDetectingGps ? 'Detecting...' : 'Auto GPS'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {gpsStatusMsg && (
+                    <p className="text-[11px] text-teal-800 font-medium bg-teal-100/60 px-2.5 py-1 rounded-lg">
+                      {gpsStatusMsg}
+                    </p>
+                  )}
+
+                  <textarea
+                    rows={2}
+                    value={procureDeliveryAddress}
+                    onChange={(e) => setProcureDeliveryAddress(e.target.value)}
+                    placeholder="Enter custom warehouse, terminal, processing center, or cold storage depot address..."
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-500 bg-white"
+                  />
+
+                  {/* Quick Destination Presets */}
+                  <div className="space-y-1.5">
+                    <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Quick Destination Presets:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setProcureDeliveryAddress("Sector 19, Central Cold Chain Depot, APMC Vashi, Navi Mumbai - 400703")}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white hover:bg-teal-50 hover:text-teal-900 border border-stone-200 transition cursor-pointer shadow-2xs"
+                      >
+                        📍 Vashi APMC Cold Depot
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProcureDeliveryAddress("Agri Logistics Park, Unit B-4, NH-3 Bhiwandi Corridor, Thane - 421302")}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white hover:bg-teal-50 hover:text-teal-900 border border-stone-200 transition cursor-pointer shadow-2xs"
+                      >
+                        📍 Bhiwandi Logistics Corridor
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProcureDeliveryAddress("Plot 12, Market Yard Terminal, Gultekdi, Pune - 411037")}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white hover:bg-teal-50 hover:text-teal-900 border border-stone-200 transition cursor-pointer shadow-2xs"
+                      >
+                        📍 Pune Market Yard Terminal
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setProcureDeliveryAddress(user.delivery_address || user.location || "Corporate Agri Sourcing Facility, Maharashtra")}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium bg-white hover:bg-teal-50 hover:text-teal-900 border border-stone-200 transition cursor-pointer shadow-2xs"
+                      >
+                        🏢 Registered Company Address
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Road Corridor & Live Distance */}
+                  <div className="pt-2 border-t border-teal-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-1.5 text-stone-700">
+                      <Navigation className="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                      <span className="font-semibold">Route: </span>
+                      <span className="text-stone-600 truncate max-w-xs">{procureLotModal.location} ➔ Destination</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-stone-500">Distance:</span>
+                        <input
+                          type="number"
+                          min="5"
+                          max="2500"
+                          value={procureDistanceKm}
+                          onChange={(e) => setProcureDistanceKm(Math.max(5, Number(e.target.value)))}
+                          className="w-16 px-2 py-0.5 border border-stone-300 rounded-md text-xs font-bold outline-none focus:border-teal-600 bg-white text-center"
+                        />
+                        <span className="text-[11px] font-bold text-stone-700">km</span>
+                        {isCalculatingDistance && <RefreshCw className="w-3 h-3 text-teal-600 animate-spin" />}
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[11px] text-stone-500 block">Road Freight Tariff</span>
+                        <span className="text-xs font-extrabold text-stone-900">
+                          {logisticsMode === 'BUYER_SELF_FLEET' ? '₹0 (Self Fleet)' : `₹${calculatedDeliveryFee.toLocaleString('en-IN')}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION 2: LOGISTICS CARRIER & FLEET SELECTION */}
+                <div className="space-y-2">
                   <label className="text-xs font-bold text-stone-800 flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-teal-700" />
-                    Delivery Destination / Warehouse Address *
+                    <Truck className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Logistics Carrier & Dispatch Fleet Mode</span>
                   </label>
-                  <span className="text-[11px] text-teal-700 font-semibold flex items-center gap-1">
-                    <Edit3 className="w-3 h-3" /> Editable destination
-                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLogisticsMode('REEFER_COLD_CHAIN')}
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        logisticsMode === 'REEFER_COLD_CHAIN'
+                          ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/20 text-emerald-950'
+                          : 'border-stone-200 bg-white hover:border-stone-300 text-stone-700'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold">❄️ Reefer Cold Chain</span>
+                          {logisticsMode === 'REEFER_COLD_CHAIN' && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                        </div>
+                        <p className="text-[10px] text-stone-500 mt-1">4°C - 8°C temperature control. Preserves shelf-life & reduces transit weight loss.</p>
+                      </div>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100/70 px-1.5 py-0.5 rounded mt-2 w-fit">
+                        Recommended
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setLogisticsMode('STANDARD_HEAVY_HAUL')}
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        logisticsMode === 'STANDARD_HEAVY_HAUL'
+                          ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/20 text-emerald-950'
+                          : 'border-stone-200 bg-white hover:border-stone-300 text-stone-700'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold">🚛 Standard Hauler</span>
+                          {logisticsMode === 'STANDARD_HEAVY_HAUL' && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                        </div>
+                        <p className="text-[10px] text-stone-500 mt-1">Heavy commercial truck with weatherproof tarpaulin cover & GPS tracking.</p>
+                      </div>
+                      <span className="text-[9px] font-bold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded mt-2 w-fit">
+                        Direct Freight
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setLogisticsMode('BUYER_SELF_FLEET')}
+                      className={`p-3 rounded-xl border text-left transition cursor-pointer flex flex-col justify-between ${
+                        logisticsMode === 'BUYER_SELF_FLEET'
+                          ? 'border-emerald-600 bg-emerald-50/70 ring-2 ring-emerald-500/20 text-emerald-950'
+                          : 'border-stone-200 bg-white hover:border-stone-300 text-stone-700'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold">🏢 Buyer Self-Fleet</span>
+                          {logisticsMode === 'BUYER_SELF_FLEET' && <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
+                        </div>
+                        <p className="text-[10px] text-stone-500 mt-1">Buyer dispatches own trucks directly to the FPO farm gate terminal. Zero FarmiQ freight tariff.</p>
+                      </div>
+                      <span className="text-[9px] font-bold text-teal-700 bg-teal-100/70 px-1.5 py-0.5 rounded mt-2 w-fit">
+                        ₹0 Freight
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
-                <textarea
-                  rows={2}
-                  value={procureDeliveryAddress}
-                  onChange={(e) => setProcureDeliveryAddress(e.target.value)}
-                  placeholder="Enter custom warehouse, terminal, or processing facility address..."
-                  className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-teal-600 focus:ring-1 focus:ring-teal-500"
-                />
+                {/* SECTION 3: ESCROW PAYMENT & INSPECTION PROTOCOL */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Escrow Model */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-stone-800 flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-teal-700" />
+                      <span>Escrow Payment Structure</span>
+                    </label>
+                    <div className="space-y-1.5">
+                      <label className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                        escrowPaymentModel === '100_ESCROW'
+                          ? 'border-teal-600 bg-teal-50/60 font-semibold text-teal-950'
+                          : 'border-stone-200 bg-white text-stone-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="escrowModel"
+                          checked={escrowPaymentModel === '100_ESCROW'}
+                          onChange={() => setEscrowPaymentModel('100_ESCROW')}
+                          className="mt-0.5 text-teal-700 focus:ring-teal-600"
+                        />
+                        <div>
+                          <span>100% Escrow Protection</span>
+                          <p className="text-[10px] text-stone-500 font-normal mt-0.5">Total funds locked in escrow; released within 24h after destination inspection.</p>
+                        </div>
+                      </label>
 
-                {/* Quick Destination Presets */}
+                      <label className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                        escrowPaymentModel === '20_ADVANCE_80_DELIVERY'
+                          ? 'border-teal-600 bg-teal-50/60 font-semibold text-teal-950'
+                          : 'border-stone-200 bg-white text-stone-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="escrowModel"
+                          checked={escrowPaymentModel === '20_ADVANCE_80_DELIVERY'}
+                          onChange={() => setEscrowPaymentModel('20_ADVANCE_80_DELIVERY')}
+                          className="mt-0.5 text-teal-700 focus:ring-teal-600"
+                        />
+                        <div>
+                          <span>20% Advance + 80% on Unloading</span>
+                          <p className="text-[10px] text-stone-500 font-normal mt-0.5">20% released on dispatch weighment, remaining 80% upon delivery acceptance.</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Inspection Protocol */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-stone-800 flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Quality & Weighment Protocol</span>
+                    </label>
+                    <div className="space-y-1.5">
+                      <label className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                        inspectionProtocol === 'APMC_WEIGHBRIDGE'
+                          ? 'border-emerald-600 bg-emerald-50/60 font-semibold text-emerald-950'
+                          : 'border-stone-200 bg-white text-stone-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="inspectionProtocol"
+                          checked={inspectionProtocol === 'APMC_WEIGHBRIDGE'}
+                          onChange={() => setInspectionProtocol('APMC_WEIGHBRIDGE')}
+                          className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                        />
+                        <div>
+                          <span>Certified APMC Weighbridge Slip</span>
+                          <p className="text-[10px] text-stone-500 font-normal mt-0.5">Standard digital scale printout + quality grading certificate uploaded on dispatch.</p>
+                        </div>
+                      </label>
+
+                      <label className={`flex items-start gap-2 p-2.5 rounded-xl border text-xs cursor-pointer transition ${
+                        inspectionProtocol === 'DESTINATION_ACCEPTANCE'
+                          ? 'border-emerald-600 bg-emerald-50/60 font-semibold text-emerald-950'
+                          : 'border-stone-200 bg-white text-stone-700'
+                      }`}>
+                        <input
+                          type="radio"
+                          name="inspectionProtocol"
+                          checked={inspectionProtocol === 'DESTINATION_ACCEPTANCE'}
+                          onChange={() => setInspectionProtocol('DESTINATION_ACCEPTANCE')}
+                          className="mt-0.5 text-emerald-700 focus:ring-emerald-600"
+                        />
+                        <div>
+                          <span>Destination Inward Inspection</span>
+                          <p className="text-[10px] text-stone-500 font-normal mt-0.5">Final approval based on buyer receiving quality assessment & Brix test.</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Special Dispatch Instructions */}
                 <div className="space-y-1">
-                  <span className="text-[10px] font-semibold text-stone-400">Quick Destination Presets:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setProcureDeliveryAddress("Sector 19, Central Cold Chain Depot, APMC Vashi, Navi Mumbai - 400703")}
-                      className="px-2 py-1 rounded-lg text-[10px] font-medium bg-stone-100 hover:bg-teal-50 hover:text-teal-800 border border-stone-200 transition cursor-pointer"
-                    >
-                      📍 Vashi APMC Cold Depot
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProcureDeliveryAddress("Agri Logistics Park, Unit B-4, NH-3 Bhiwandi Corridor, Thane - 421302")}
-                      className="px-2 py-1 rounded-lg text-[10px] font-medium bg-stone-100 hover:bg-teal-50 hover:text-teal-800 border border-stone-200 transition cursor-pointer"
-                    >
-                      📍 Bhiwandi Logistics Corridor
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProcureDeliveryAddress("Plot 12, Market Yard Terminal, Gultekdi, Pune - 411037")}
-                      className="px-2 py-1 rounded-lg text-[10px] font-medium bg-stone-100 hover:bg-teal-50 hover:text-teal-800 border border-stone-200 transition cursor-pointer"
-                    >
-                      📍 Pune Market Yard Terminal
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setProcureDeliveryAddress(user.delivery_address || user.location || "Company Registered Sourcing Facility, Maharashtra")}
-                      className="px-2 py-1 rounded-lg text-[10px] font-medium bg-stone-100 hover:bg-teal-50 hover:text-teal-800 border border-stone-200 transition cursor-pointer"
-                    >
-                      🏢 Registered Company Address
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Automated Road Logistics Distance & Tariff */}
-              <div className="p-3.5 rounded-xl bg-gradient-to-br from-emerald-50 via-teal-50 to-stone-50 border border-emerald-200 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-emerald-950 font-bold text-xs">
-                    <Navigation className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Road Freight & Distance</span>
-                  </div>
-                  <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                    Direct Freight Logistics
-                  </span>
+                  <label className="text-xs font-bold text-stone-800">
+                    Logistics Remarks / Warehouse Receiving Instructions (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={logisticsNotes}
+                    onChange={(e) => setLogisticsNotes(e.target.value)}
+                    placeholder="e.g., Gate Pass #8, Receiving Dock 3, Contact Manager Mr. Rao on +91 98221 00000"
+                    className="w-full px-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-teal-600 bg-white"
+                  />
                 </div>
 
-                <div className="flex items-center justify-between text-xs pt-1">
-                  <div>
-                    <label className="text-[11px] text-stone-500 block">Dispatch Distance (km)</label>
-                    <input
-                      type="number"
-                      min="5"
-                      max="1200"
-                      value={procureDistanceKm}
-                      onChange={(e) => setProcureDistanceKm(Math.max(5, Number(e.target.value)))}
-                      className="w-24 px-2 py-1 border border-stone-300 rounded-lg text-xs font-bold outline-none focus:border-teal-600 bg-white"
-                    />
+                {/* Financial & Escrow Summary */}
+                <div className="p-3.5 bg-stone-100 rounded-2xl space-y-1.5 text-xs border border-stone-200">
+                  <div className="flex justify-between text-stone-600">
+                    <span>Produce Value ({procureLotModal.quantity} {procureLotModal.unit} @ ₹{procureLotModal.base_price_per_unit}):</span>
+                    <span className="font-semibold text-stone-900">₹{produceVal.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="text-right">
-                    <span className="text-[11px] text-stone-500 block">Freight Tariff</span>
-                    <span className="text-sm font-bold text-stone-900">₹{calculateDeliveryFee(procureDistanceKm)}</span>
+                  <div className="flex justify-between text-stone-600">
+                    <span>Freight Tariff ({logisticsMode === 'BUYER_SELF_FLEET' ? 'Self Fleet Pickup' : `${procureDistanceKm} km`}):</span>
+                    <span className="font-semibold text-stone-900">
+                      ₹{calculatedDeliveryFee.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-stone-300/80 flex justify-between items-center text-sm font-black text-stone-900">
+                    <span>Total Escrow Deposit:</span>
+                    <span className="text-emerald-800 text-base">
+                      ₹{totalEscrowDeposit.toLocaleString('en-IN')}
+                    </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Financial & Escrow Summary */}
-              <div className="p-3 bg-stone-100 rounded-xl space-y-1 text-xs">
-                <div className="flex justify-between text-stone-600">
-                  <span>Produce Value ({procureLotModal.quantity} {procureLotModal.unit}):</span>
-                  <span className="font-semibold text-stone-900">₹{(procureLotModal.quantity * procureLotModal.base_price_per_unit).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="flex justify-between text-stone-600">
-                  <span>Road Logistics ({procureDistanceKm} km):</span>
-                  <span className="font-semibold text-stone-900">₹{calculateDeliveryFee(procureDistanceKm).toLocaleString('en-IN')}</span>
-                </div>
-                <div className="pt-2 border-t border-stone-200 flex justify-between items-center text-sm font-extrabold text-stone-900">
-                  <span>Total Escrow Deposit:</span>
-                  <span className="text-emerald-800 text-base">
-                    ₹{(procureLotModal.quantity * procureLotModal.base_price_per_unit + calculateDeliveryFee(procureDistanceKm)).toLocaleString('en-IN')}
+                {/* Escrow Guarantee Note */}
+                <div className="p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-900 text-xs flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
+                  <span className="text-[11px]">
+                    <strong>100% Escrow Guarantee:</strong> Funds remain safely locked in FarmiQ Escrow until physical delivery inspection at your designated address.
                   </span>
                 </div>
               </div>
 
-              {/* Escrow Guarantee Note */}
-              <div className="p-2.5 rounded-lg bg-teal-50 border border-teal-200 text-teal-900 text-[11px] flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
-                <span>
-                  <strong>100% Escrow Guarantee:</strong> Funds remain securely locked in FarmiQ Escrow until physical delivery inspection at your designated address.
-                </span>
+              {/* Modal Actions */}
+              <div className="p-4 bg-stone-50 border-t border-stone-200 flex gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setProcureLotModal(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-700 font-bold text-xs hover:bg-stone-100 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={procuringLotId === procureLotModal.id}
+                  onClick={handleExecuteProcurement}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition disabled:bg-stone-300 cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-200" />
+                  <span>
+                    {procuringLotId === procureLotModal.id ? 'Securing Escrow & Ordering...' : 'Confirm Procurement & Route Consignment'}
+                  </span>
+                </button>
               </div>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="p-4 bg-stone-50 border-t border-stone-200 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setProcureLotModal(null)}
-                className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-700 font-bold text-xs hover:bg-stone-100 transition cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={procuringLotId === procureLotModal.id}
-                onClick={handleExecuteProcurement}
-                className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition disabled:bg-stone-300 cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <ShieldCheck className="w-4 h-4 text-emerald-200" />
-                <span>
-                  {procuringLotId === procureLotModal.id ? 'Securing Escrow & Ordering...' : 'Confirm Procurement & Route Consignment'}
-                </span>
-              </button>
             </div>
           </div>
-        </div>
+        );
+      })()}
+
+      {/* Interactive Map Picker Modal */}
+      {isMapPickerOpen && (
+        <LocationPickerModal
+          isOpen={isMapPickerOpen}
+          onClose={() => setIsMapPickerOpen(false)}
+          user={user}
+          defaultAddress={procureDeliveryAddress}
+          title="Select Destination Warehouse / Terminal Location"
+          onAddressSaved={(newAddr) => {
+            setProcureDeliveryAddress(newAddr);
+            setIsMapPickerOpen(false);
+          }}
+        />
       )}
     </div>
   );

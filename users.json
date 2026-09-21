@@ -1,9 +1,9 @@
 {
   "description": "FarmiQ Registered Users Credentials & Profiles Directory",
-  "last_updated": "2026-09-19T13:33:09.622Z",
+  "last_updated": "2026-09-21T09:39:03.705Z",
   "total_farmers": 3,
   "total_customers": 3,
-  "total_buyers": 0,
+  "total_buyers": 3,
   "farmer_users": [
     {
       "id": 1002,
@@ -86,5 +86,42 @@
       "registered_at": "2026-09-16T14:37:53.109Z"
     }
   ],
-  "buyer_users": []
+  "buyer_users": [
+    {
+      "id": 1008,
+      "role": "buyer",
+      "full_name": "Metro Wholesale Sourcing",
+      "company_name": "Metro Wholesale Ltd",
+      "buyer_type": "Retail Chain",
+      "email": "testbuyer_1789981585506@metro.com",
+      "phone": "9876543210",
+      "password": "password123",
+      "location": "Maharashtra",
+      "registered_at": "2026-09-21T09:06:25.559Z"
+    },
+    {
+      "id": 1009,
+      "role": "buyer",
+      "full_name": "Metro Wholesale Sourcing",
+      "company_name": "Metro Wholesale Hub Ltd",
+      "buyer_type": "Retail Chain",
+      "email": "buyer.procure@metroglobal.com",
+      "phone": "9876543210",
+      "password": "password123",
+      "location": "Maharashtra",
+      "registered_at": "2026-09-21T09:08:57.194Z"
+    },
+    {
+      "id": 1010,
+      "role": "buyer",
+      "full_name": "keer",
+      "company_name": "s-mart",
+      "buyer_type": "Retail Chain",
+      "email": "keer@gmail.com",
+      "phone": "9030170776",
+      "password": "123456",
+      "location": "8-253 ongole",
+      "registered_at": "2026-09-21T09:18:42.396Z"
+    }
+  ]
 }

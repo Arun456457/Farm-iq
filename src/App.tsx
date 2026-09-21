@@ -366,11 +366,12 @@ export default function App() {
         )}
 
         {/* Verified Corporate Buyer Dashboard */}
-        {user && user.role === 'buyer' && (currentTab === 'buyer-orders' || currentTab === 'buyer-fpo') && (
+        {user && user.role === 'buyer' && (currentTab === 'buyer-orders' || currentTab === 'buyer-fpo' || !['contracts', 'mandi-rates', 'storage'].includes(currentTab)) && (
           <BuyerDashboard
             user={user}
             language={language}
-            activeSubTab={currentTab as any}
+            activeSubTab={currentTab === 'buyer-fpo' ? 'buyer-fpo' : 'buyer-orders'}
+            onSubTabChange={(tab) => setCurrentTab(tab)}
             onContractCreated={triggerSync}
           />
         )}

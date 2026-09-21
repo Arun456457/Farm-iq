@@ -420,6 +420,7 @@ function getAppBaseUrl(req?: express.Request): string {
       const proto = (req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'https')) as string;
       return `${proto}://${forwardedHost}`.replace(/\/+$/, '');
     }
+  }
   return process.env.APP_URL || 'https://farmiq-z14k.onrender.com';
 }
 
@@ -1955,6 +1956,7 @@ async function startServer() {
     };
     db.contracts.unshift(newContract);
     saveState(db);
+    broadcastEvent("CONTRACT_CREATED", { contract: newContract });
     res.json({ message: "Contract posted successfully", contract: newContract });
   });
 
@@ -1971,6 +1973,7 @@ async function startServer() {
     contract.assigned_farmer_id = user ? user.id : 0;
     contract.assigned_farmer_name = user ? user.full_name : "Registered Farmer";
     saveState(db);
+    broadcastEvent("CONTRACT_UPDATED", { contract });
     res.json({ message: "Contract successfully accepted and locked in escrow!", contract });
   });
 
@@ -2542,6 +2545,7 @@ async function startServer() {
     // ────────────────────────────────────────────────────────────────────────────
 
     saveState(db);
+    broadcastEvent("LOT_CREATED", { lot: newLot });
     res.json({ message: "Produce lot successfully created and listed for verified buyers", lot: newLot });
   });
 
@@ -2725,7 +2729,25 @@ async function startServer() {
     lot.linked_order_id = newOrderId;
     lot.fulfillment_status = "ACCEPTED";
 
+    if (!db.notifications) db.notifications = [];
+    const matchNotif = {
+      id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      recipient_id: buyerUserId || 2,
+      type: "ORDER",
+      title: "Lot Matched with FPO",
+      message: `Lot #${lot.id} (${lot.quantity} ${lot.unit} ${lot.crop_name}) matched with ${buyer.company_name}. Order #${newOrderId} created.`,
+      order_id: newOrderId,
+      status: "UNREAD",
+      created_at: new Date().toISOString()
+    };
+    db.notifications.unshift(matchNotif);
+
     saveState(db);
+    broadcastEvent("LOT_MATCHED", { lot, order: newOrder, contract: newContract });
+    broadcastEvent("NEW_ORDER", { order: newOrder, notification: matchNotif });
+    broadcastEvent("LOT_UPDATED", { lot });
+    broadcastEvent("CONTRACT_CREATED", { contract: newContract });
+
     res.json({
       message: `Match confirmed with ${buyer.company_name}! Escrow contract #${newContract.id} activated and Order #${newOrderId} queued for preparation.`,
       contract: newContract,
@@ -2750,9 +2772,16 @@ async function startServer() {
       (user.company_name && b.company_name && b.company_name.toLowerCase() === user.company_name.toLowerCase())
     );
 
-    if (buyerRecord && (buyerRecord.status === "REJECTED" || buyerRecord.verified === false)) {
-      return res.status(403).json({ error: "Your institutional buyer registration is not verified by Admin." });
+    if (buyerRecord && buyerRecord.status === "REJECTED") {
+      return res.status(403).json({ error: "Your institutional buyer registration was rejected by Admin." });
     }
+
+    if (buyerRecord) {
+      buyerRecord.verified = true;
+      buyerRecord.status = "VERIFIED";
+    }
+    user.verified = true;
+    user.status = "VERIFIED";
 
     const companyName = buyerRecord?.company_name || user.company_name || user.full_name;
     const buyerId = buyerRecord ? buyerRecord.id : `BUYER-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -2782,7 +2811,9 @@ async function startServer() {
       quality_grade: `${lot.quality_grade} (Defect < ${lot.defect_pct}%, Moisture ${lot.moisture_pct}%)`,
       delivery_location: buyerLocation,
       delivery_deadline: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
-      terms: `100% Escrow deposit locked by ${companyName}. Direct farm-gate pickup. Payment released within 24h of weighment receipt.`,
+      terms: req.body?.escrow_model === '20_ADVANCE_80_DELIVERY'
+        ? `20% Escrow Advance released on dispatch; 80% locked until destination weighment approval by ${companyName}.`
+        : `100% Escrow deposit locked by ${companyName}. Payment released within 24h of weighment & quality approval.`,
       status: "ACCEPTED_IN_ESCROW",
       assigned_farmer_id: lot.farmer_id || (user ? user.id : 0),
       assigned_farmer_name: lot.farmer_name || (user ? user.full_name : "Registered Farmer"),
@@ -2796,7 +2827,8 @@ async function startServer() {
     const newOrderId = db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101;
     const customDist = Number(req.body?.distance_km);
     const estDistance = !isNaN(customDist) && customDist > 0 ? customDist : 45;
-    const deliveryTariff = calculateDeliveryFee(estDistance);
+    const logisticsMode = req.body?.logistics_mode || "REEFER_COLD_CHAIN";
+    const deliveryTariff = logisticsMode === 'BUYER_SELF_FLEET' ? 0 : calculateDeliveryFee(estDistance);
     const produceVal = Math.round(lot.quantity * lot.base_price_per_unit);
 
     const newOrder = {
@@ -2820,13 +2852,17 @@ async function startServer() {
       delivery_charge: deliveryTariff,
       grand_total: produceVal + deliveryTariff,
       delivery_address: buyerLocation,
-      payment_method: "100% Escrow Secured",
+      logistics_mode: logisticsMode,
+      escrow_model: req.body?.escrow_model || '100_ESCROW',
+      inspection_protocol: req.body?.inspection_protocol || 'APMC_WEIGHBRIDGE',
+      logistics_notes: req.body?.logistics_notes ? String(req.body.logistics_notes).trim() : undefined,
+      payment_method: req.body?.escrow_model === '20_ADVANCE_80_DELIVERY' ? '20% Advance Escrow + 80% on Unloading' : '100% Escrow Secured',
       payment_status: "LOCKED_IN_ESCROW",
       transaction_id: `ESC-${Date.now().toString().slice(-6)}`,
       status: "ACCEPTED",
-      driver_name: "FarmiQ Agri-Logistics Transport",
+      driver_name: logisticsMode === 'BUYER_SELF_FLEET' ? "Buyer Self-Arranged Fleet" : "FarmiQ Reefer Agri-Logistics",
       driver_phone: "+91 94231 88910",
-      vehicle_number: "MH-15-EG-8821",
+      vehicle_number: logisticsMode === 'BUYER_SELF_FLEET' ? "BUYER-TRUCK" : "MH-15-EG-8821",
       order_type: "FPO_COMMERCIAL_LOT",
       created_at: new Date().toISOString()
     };
@@ -2839,7 +2875,44 @@ async function startServer() {
     lot.linked_order_id = newOrderId;
     lot.fulfillment_status = "ACCEPTED";
 
+    // Create notifications for Farmer & Buyer
+    if (!db.notifications) db.notifications = [];
+    const fpoNotif = {
+      id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      recipient_id: lot.farmer_id || 0,
+      type: "ORDER",
+      title: "Bulk Lot Procured & Escrow Locked",
+      message: `Institutional Buyer "${companyName}" has procured Lot #${lot.id} (${lot.quantity} ${lot.unit} ${lot.crop_name}). Order #${newOrderId} created with ₹${(produceVal + deliveryTariff).toLocaleString('en-IN')} escrow locked. Ready for packaging.`,
+      order_id: newOrderId,
+      order_total: produceVal + deliveryTariff,
+      status: "UNREAD",
+      requires_action: true,
+      created_at: new Date().toISOString()
+    };
+    db.notifications.unshift(fpoNotif);
+
+    const buyerNotif = {
+      id: `NOTIF-${Date.now() + 1}-${Math.floor(Math.random() * 1000)}`,
+      recipient_id: user.id,
+      type: "ORDER",
+      title: "Procurement Order Confirmed",
+      message: `Your procurement for Lot #${lot.id} (${lot.quantity} ${lot.unit} ${lot.crop_name}) is confirmed under Contract #${newContract.id}. Order #${newOrderId} is routing to "${buyerLocation}".`,
+      order_id: newOrderId,
+      order_total: produceVal + deliveryTariff,
+      status: "UNREAD",
+      requires_action: false,
+      created_at: new Date().toISOString()
+    };
+    db.notifications.unshift(buyerNotif);
+
     saveState(db);
+
+    // Broadcast instant real-time events to all clients
+    broadcastEvent("LOT_PROCURED", { lot, order: newOrder, contract: newContract, notification: fpoNotif });
+    broadcastEvent("NEW_ORDER", { order: newOrder, notification: fpoNotif });
+    broadcastEvent("LOT_UPDATED", { lot });
+    broadcastEvent("CONTRACT_CREATED", { contract: newContract });
+
     res.json({
       message: `Lot #${lot.id} successfully procured with 100% Escrow locked! Order #${newOrderId} generated for farmer dispatch.`,
       contract: newContract,
@@ -2877,6 +2950,7 @@ async function startServer() {
     };
     db.disputes.unshift(newDispute);
     saveState(db);
+    broadcastEvent("DISPUTE_CREATED", { dispute: newDispute });
     res.json({ message: "Dispute submitted to Admin Escrow desk", dispute: newDispute });
   });
 
@@ -2893,6 +2967,7 @@ async function startServer() {
     disp.status = "RESOLVED";
     disp.resolution = resolution || "Resolved by platform admin via Escrow settlement.";
     saveState(db);
+    broadcastEvent("DISPUTE_RESOLVED", { dispute: disp });
     res.json({ message: "Dispute resolved", dispute: disp });
   });
 

@@ -580,6 +580,13 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
         fulfillment_status: 'ACCEPTED'
       } : l));
 
+      try {
+        const bus = new BroadcastChannel('farmiq_bus');
+        bus.postMessage({ type: 'LOT_MATCHED', order: res.order, lot: res.lot, contract: res.contract });
+        bus.close();
+      } catch {}
+      window.dispatchEvent(new CustomEvent('farmiq_state_change', { detail: { type: 'LOT_MATCHED', order: res.order } }));
+
       await loadFarmerData();
       if (selectedLotForMatch && selectedLotForMatch.id === lotId) {
         setSelectedLotForMatch(prev => prev ? { 
@@ -599,8 +606,56 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
 
   useEffect(() => {
     loadFarmerData();
-    const interval = setInterval(loadFarmerData, 4000); // 4-second auto-sync
-    return () => clearInterval(interval);
+
+    // 1. Cross-tab & local real-time sync via BroadcastChannel
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel('farmiq_bus');
+      bc.onmessage = (event) => {
+        if (event.data?.type) {
+          loadFarmerData();
+        }
+      };
+    } catch {
+      // BroadcastChannel unsupported
+    }
+
+    // 2. Server-Sent Events (SSE) for instant server pushes
+    let evtSource: EventSource | null = null;
+    try {
+      evtSource = new EventSource('/api/notifications/stream');
+      evtSource.onmessage = (event) => {
+        try {
+          const parsed = JSON.parse(event.data);
+          if (parsed && (parsed.type || parsed.data)) {
+            loadFarmerData();
+          }
+        } catch {
+          // heartbeat
+        }
+      };
+      evtSource.onerror = () => {
+        // SSE auto-reconnects
+      };
+    } catch {
+      // SSE unsupported fallback
+    }
+
+    // 3. In-window custom event listener
+    const handleLocalSync = () => {
+      loadFarmerData();
+    };
+    window.addEventListener('farmiq_state_change', handleLocalSync);
+
+    // 4. Polling fallback (4s)
+    const interval = setInterval(loadFarmerData, 4000);
+
+    return () => {
+      clearInterval(interval);
+      if (evtSource) evtSource.close();
+      if (bc) bc.close();
+      window.removeEventListener('farmiq_state_change', handleLocalSync);
+    };
   }, []);
 
   const handleAcceptRequirement = async (reqId: string) => {
