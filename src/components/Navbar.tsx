@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Sprout, RefreshCw, Globe, LogOut, ShieldAlert, Package, ShoppingBag, 
   TrendingUp, Warehouse, FileText, User as UserIcon, MapPin, Download, 
-  Menu, X, ChevronRight, CheckCircle2, Phone, Bell
+  Menu, X, ChevronRight, CheckCircle2, Phone, Bell, Award
 } from 'lucide-react';
 import { User, LanguageCode } from '../types';
 import { translations } from '../translations';
@@ -211,6 +211,20 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           {/* 3. Right: Location, Install App, Notifications, Language, User profile & THREE LINES MENU at corner */}
           <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            {/* SIH 2025 Presentation Pitch Deck Trigger */}
+            <button
+              id="btn-nav-sih-deck"
+              type="button"
+              onClick={() => handleSelectTab('sih-presentation')}
+              title="Official Smart India Hackathon 2025 Presentation Deck (PS ID: 26132)"
+              className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 border border-amber-300 font-bold text-xs shadow-2xs transition cursor-pointer shrink-0 active:scale-95"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span className="hidden sm:inline font-['Outfit']">SIH 2025 Deck</span>
+              <span className="sm:hidden font-['Outfit']">SIH</span>
+              <span className="text-[10px] font-black px-1.5 py-0.2 bg-amber-200/90 rounded text-amber-950 font-mono hidden md:inline">26132</span>
+            </button>
+
             {/* Install App button - Desktop only, hidden once installed */}
             {!isAppInstalled && onOpenInstallModal && (
               <button
@@ -532,6 +546,29 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </button>
                         </div>
                       )}
+
+                      {/* SIH 2025 Pitch Deck */}
+                      <button
+                        id="menu-item-sih-deck"
+                        type="button"
+                        onClick={() => {
+                          handleSelectTab('sih-presentation');
+                          setIsMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-left transition cursor-pointer ${
+                          currentTab === 'sih-presentation'
+                            ? 'bg-amber-100 text-amber-950 font-bold border border-amber-300'
+                            : 'hover:bg-amber-50 text-stone-800 font-medium'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Award className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span className="text-xs truncate font-bold">SIH 2025 Presentation Deck</span>
+                        </div>
+                        <span className="text-[9px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded shrink-0">
+                          PS: 26132
+                        </span>
+                      </button>
 
                       {/* 1. Digital Contracts */}
                       <button

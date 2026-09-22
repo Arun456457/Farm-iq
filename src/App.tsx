@@ -18,6 +18,7 @@ import { UPIPaymentModal } from './components/UPIPaymentModal';
 import { InstallAppModal } from './components/InstallAppModal';
 import { LiveTrackingModal } from './components/LiveTrackingModal';
 import { EditProfileModal } from './components/EditProfileModal';
+import { SIHPresentation } from './components/SIHPresentation';
 
 import { triggerFullPageTranslation } from './utils/translator';
 
@@ -46,7 +47,16 @@ export default function App() {
     }
   }, []);
 
-  const [currentTab, setCurrentTab] = useState<string>('landing');
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'sih' || tabParam === 'sih-presentation' || tabParam === '26132') return 'sih-presentation';
+      if (window.location.pathname.toLowerCase().includes('/sih')) return 'sih-presentation';
+      if (tabParam) return tabParam;
+    } catch {}
+    return 'landing';
+  });
   
   // Auth modal
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -295,6 +305,16 @@ export default function App() {
     triggerSync();
   };
 
+  if (currentTab === 'sih-presentation') {
+    return (
+      <SIHPresentation
+        language={language}
+        onBack={() => setCurrentTab(user ? (user.role === 'farmer' ? 'my-produce' : user.role === 'admin' ? 'admin-overview' : user.role === 'buyer' ? 'buyer-orders' : 'marketplace') : 'landing')}
+        onNavigateToTab={(tab) => setCurrentTab(tab)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col text-stone-900 font-['Inter'] antialiased w-full max-w-full overflow-x-hidden">
       {/* Top Navbar */}
@@ -327,6 +347,7 @@ export default function App() {
             language={language}
             onSelectRole={(role) => handleOpenAuth('register', role)}
             onOpenAuth={handleOpenAuth}
+            onOpenSIH={() => setCurrentTab('sih-presentation')}
           />
         )}
 
