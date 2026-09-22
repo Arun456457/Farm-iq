@@ -1915,6 +1915,24 @@ async function startServer() {
     });
   });
 
+  // CASH ON DELIVERY (COD) SELECTION FOR ORDERS
+  app.post("/api/orders/:id/pay-cod", (req, res) => {
+    const user = getUserFromToken(req);
+    const orderId = Number(req.params.id);
+    const order = db.orders.find(o => o.id === orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    order.payment_method = "Cash on Delivery";
+    order.payment_status = "PENDING_FARMER_APPROVAL";
+    const invoice = getOrCreateInvoice(order);
+    invoice.payment_method = "Cash on Delivery";
+    invoice.payment_status = "Pending";
+
+    saveState(db);
+    broadcastEvent("ORDER_UPDATED", { order, invoice });
+    res.json({ message: "Cash on delivery selected successfully", order, invoice });
+  });
+
   app.put("/api/orders/:id/status", (req, res) => {
     const user = getUserFromToken(req);
     const orderId = Number(req.params.id);
@@ -2339,8 +2357,9 @@ async function startServer() {
     const deliveryCharge = calculateDeliveryFee(15);
     const grandTotal = productTotal + deliveryCharge;
 
+    const newOrderId = db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101;
     const newOrder = {
-      id: db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101,
+      id: newOrderId,
       customer_id: reqItem.customer_id,
       customer_name: reqItem.customer_name,
       farmer_id: user.id,
@@ -2359,9 +2378,11 @@ async function startServer() {
       payment_status: "CONFIRMED",
       transaction_id: `REQ_ORDER_${reqItem.id}`,
       status: "ACCEPTED",
-      driver_name: "Delivery Agent",
-      driver_phone: `+91 ${9821000000 + ((newOrder.id * 71329) % 8999999)}`,
-      vehicle_number: `MH-14-BN-${1000 + (newOrder.id * 89) % 9000}`,
+      driver_name: user.full_name || "Assigned Farmer",
+      driver_phone: user.phone || `+91 ${9821000000 + ((newOrderId * 71329) % 8999999)}`,
+      vehicle_number: `MH-14-BN-${1000 + (newOrderId * 89) % 9000}`,
+      delivery_agent_assigned: false,
+      farmer_payout_amount: grandTotal,
       tracking_lat: 18.5204,
       tracking_lng: 73.8567,
       created_at: new Date().toISOString()

@@ -120,10 +120,10 @@ export const api = {
   },
   getCustomerOrders: () => request<Order[]>('/customer/orders'),
   getFarmerOrders: () => request<Order[]>('/farmer/orders'),
-  updateOrderStatus: async (orderId: number, status: string) => {
+  updateOrderStatus: async (orderId: number, status: string, extraData?: any) => {
     const res = await request<any>(`/orders/${orderId}/status`, {
       method: 'PUT',
-      body: JSON.stringify({ status })
+      body: JSON.stringify({ status, ...(extraData || {}) })
     });
     return (res.order ? res.order : res) as Order;
   },
@@ -138,6 +138,9 @@ export const api = {
   payOrderUPI: (orderId: number, payload: { amount: number; transaction_id?: string; gateway_mode?: string }) => request<{ message: string; order: Order; invoice: Invoice; payment: PaymentRecord }>(`/orders/${orderId}/pay-upi`, {
     method: 'POST',
     body: JSON.stringify(payload)
+  }),
+  payOrderCOD: (orderId: number) => request<{ message: string; order: Order; invoice?: Invoice }>(`/orders/${orderId}/pay-cod`, {
+    method: 'POST'
   }),
   getOrderTracking: (orderId: number) => request<any>(`/orders/${orderId}/tracking`),
 

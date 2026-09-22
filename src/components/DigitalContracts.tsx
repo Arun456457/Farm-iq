@@ -7,7 +7,7 @@ import { translations } from '../translations';
 interface DigitalContractsProps {
   user: User | null;
   language: LanguageCode;
-  onOpenAuth: (mode: 'login' | 'register') => void;
+  onOpenAuth: (mode: 'login' | 'register', roleHint?: any) => void;
 }
 
 export const DigitalContracts: React.FC<DigitalContractsProps> = ({

@@ -1086,7 +1086,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     className="w-full px-3 py-2 border border-stone-300 rounded-xl outline-none focus:border-teal-600"
                   />
                   <span className="text-[10px] text-stone-500 mt-0.5 block">
-                    Estimated total: ₹{(reqQuantity * reqPrice).toLocaleString('en-IN')}
+                    Estimated total: ₹{((Number(reqQuantity) || 0) * (Number(reqPrice) || 0)).toLocaleString('en-IN')}
                   </span>
                 </div>
 

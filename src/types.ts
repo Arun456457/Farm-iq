@@ -54,6 +54,8 @@ export interface Product {
   action_advice?: string;
   sell_recommendation?: 'SELL_NOW' | 'WAIT_1_2_DAYS';
   sell_recommendation_reason?: string;
+  mandi_name?: string;
+  mandi_district?: string;
   created_at?: string;
 }
 
@@ -119,6 +121,7 @@ export interface FPOCollective {
   focus_crop: string;
   target_volume_quintal: number;
   location: string;
+  description?: string;
   status: 'ACTIVE' | 'FORMING';
   members: FPOCollectiveMember[];
   created_at: string;
@@ -173,7 +176,7 @@ export interface VerifiedBuyer {
   created_at?: string;
 }
 
-export type OrderStatus = 'ORDERED' | 'CONFIRMED' | 'ACCEPTED' | 'PAID' | 'PREPARING' | 'TRANSIT' | 'DELIVERED' | 'REJECTED' | 'CANCELLED';
+export type OrderStatus = 'ORDERED' | 'ORDER_PLACED' | 'CONFIRMED' | 'ACCEPTED' | 'PAID' | 'PREPARING' | 'PROCESSING' | 'SHIPPED' | 'TRANSIT' | 'DELIVERED' | 'REJECTED' | 'CANCELLED';
 
 export interface Order {
   id: number;
@@ -197,11 +200,15 @@ export interface Order {
   quantity: number;
   unit: string;
   unit_price: number;
+  price_per_unit?: number;
   product_total: number;
   distance_km: number;
   delivery_charge: number;
+  delivery_fee?: number;
   grand_total: number;
+  total_amount?: number;
   delivery_address: string;
+  pickup_location?: string;
   payment_method: string;
   payment_status: string;
   transaction_id?: string;
@@ -219,6 +226,7 @@ export interface Order {
   farmer_whatsapp_msg?: string;
   customer_whatsapp_msg?: string;
   paid_at?: string;
+  delivered_at?: string;
   rejection_reason?: string;
   created_at: string;
 }
@@ -329,8 +337,13 @@ export interface Dispute {
   customer_phone?: string;
   customer_email?: string;
   customer_address?: string;
+  counterparty_role?: string;
+  counterparty_name?: string;
+  counterparty_phone?: string;
+  counterparty_location?: string;
   product_name?: string;
   order_total?: number;
+  order_amount?: number;
   order_status?: string;
   payment_method?: string;
   payment_status?: string;

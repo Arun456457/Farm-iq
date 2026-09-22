@@ -166,7 +166,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
         </div>
 
         <button
-          onClick={fetchAdminData}
+          onClick={() => fetchAdminData()}
           className="px-4 py-2.5 rounded-xl bg-stone-700 hover:bg-stone-600 text-white font-bold text-xs flex items-center gap-2 transition self-start md:self-auto"
         >
           <RefreshCw className="w-4 h-4" />
