@@ -25,7 +25,7 @@ import 'leaflet/dist/leaflet.css';
 import { MandiRate, MandiMarket, LanguageCode } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
-import { haversineDistanceKm } from '../data/mandiDatabase';
+import { haversineDistanceKm, getCropImage } from '../data/mandiDatabase';
 
 interface LiveMandiRatesProps {
   language: LanguageCode;
@@ -727,11 +727,12 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language }) => {
                   {/* Produce Image Header */}
                   <div className="relative h-44 w-full bg-stone-100 overflow-hidden">
                     <img
-                      src={rate.image}
+                      src={rate.image || getCropImage(rate.crop)}
                       alt={rate.crop}
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                       onError={(e: any) => {
-                        e.target.src = 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop&q=80';
+                        e.target.onerror = null;
+                        e.target.src = getCropImage(rate.crop);
                       }}
                     />
                     {/* Variety Badge */}

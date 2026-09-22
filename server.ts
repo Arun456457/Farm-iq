@@ -116,9 +116,9 @@ function loadState(): DBState {
       if (!merged.notifications) merged.notifications = [];
       if (!merged.payments) merged.payments = [];
 
-      // Purge only legacy demo placeholder emails if present; never purge by numeric ID or name
+      // Purge legacy demo placeholder emails if present
       merged.users = (merged.users || []).filter((u: any) =>
-        !['farmer.patil@farmiq.in', 'ramesh.farmer.test@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.shinde@farmiq.in', 'sunita.jadhav@farmiq.in', 'ganesh.pawar@farmiq.in', 'nitin.more@farmiq.in'].includes(u.email?.toLowerCase()) &&
+        !['farmer.patil@farmiq.in', 'ramesh.farmer.test@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.shinde@farmiq.in', 'sunita.jadhav@farmiq.in', 'ganesh.pawar@farmiq.in', 'nitin.more@farmiq.in', 'arun.gera456@gmail.com', 'anu@gmail.com', 'keer@gmail.com', 'paul986624@gmail.com', 'paul9866224@gmail.com', 'paul@gmail.com', 'akki@gmail.com', 'buyer1@gmail.com'].includes(u.email?.toLowerCase()) &&
         !String(u.full_name || '').toLowerCase().includes('ramesh patil')
       );
 
@@ -361,19 +361,7 @@ if (db.lots) {
     }
   });
 
-  // Explicit sync for smart india and Smart orders if exist
-  if (db.orders) {
-    db.orders.forEach(o => {
-      if (o.customer_name === "smart india" || (o as any).lot_id === "LOT-FPO-745") {
-        o.customer_id = 106; // smart india user id
-        (o as any).buyer_id = "BUYER-3658";
-      }
-      if (o.customer_name === "Smart" || (o as any).lot_id === "LOT-FPO-101") {
-        o.customer_id = 104; // Smart user id
-        (o as any).buyer_id = "BUYER-3411";
-      }
-    });
-  }
+
 
   saveState(db);
 }
@@ -3612,26 +3600,106 @@ async function startServer() {
     });
   });
 
+  // FarmiQ Agricultural & Marketplace Knowledge Base (Answers to 28+ service questions)
+  const farmiqKnowledgeBase: { keywords: string[]; answer: string }[] = [
+    {
+      keywords: ["cod", "cash on delivery"],
+      answer: `**FarmiQ Cash on Delivery (COD) Flow:**\n- 💵 **Zero Upfront Advance:** Customers place orders with 0 initial deduction under our Zero Deduction Guarantee.\n- 🔔 **Instant Farmer Review:** The farmer receives an immediate review alert with order details.\n- 🚜 **Seamless Dispatch:** Once accepted by the farmer, the order moves directly to **PREPARING** status with no redundant approval hurdles.\n- 🏡 **Doorstep Payment:** Customers inspect the fresh produce at their doorstep and settle payment directly via Cash or direct UPI.`
+    },
+    {
+      keywords: ["zero deduction", "guarantee"],
+      answer: `**FarmiQ Zero Deduction Guarantee:**\n- 🛡️ For all Cash on Delivery (COD) orders, FarmiQ guarantees that **zero money is deducted** from the customer in advance.\n- 🔍 Inspect produce quality upon doorstep arrival.\n- 🤝 Settle payment only after you are 100% satisfied with freshness and grading.`
+    },
+    {
+      keywords: ["delivery charge", "delivery fee", "farmer payout", "earnings"],
+      answer: `**Delivery Fees & Farmer Earnings:**\n- 💰 **100% Credited to Farmer:** On FarmiQ, the distance-based delivery fee is added directly to the farmer's net payout (\`Produce Value + Delivery Charge\`).\n- 📏 **Fair Tiered Delivery:**\n  • Up to 5 km: ₹5/km (min ₹25)\n  • 5 to 15 km: ₹3/km\n  • Beyond 15 km: ₹2/km (economical long-haul)\n- Farmers are never penalized for local dispatch logistics.`
+    },
+    {
+      keywords: ["assign delivery", "delivery agent", "driver"],
+      answer: `**Delivery Agent Assignment & Defaults:**\n- 👤 **Automatic Default:** Until assigned, the delivery contact defaults to the **Farmer's verified name and phone number**.\n- 🚚 **Designate Agent:** In the Farmer Dashboard under Active Orders, click **Assign Delivery Agent**.\n- 📝 Enter Driver Name, Contact Number, and Vehicle Number (e.g. MH-12-AB-1234).\n- 📲 **Instant Customer Popup:** The customer immediately receives an interactive on-screen alert with the assigned agent's contact and live tracking details.`
+    },
+    {
+      keywords: ["popup", "notification", "assigned"],
+      answer: `**Interactive Customer Delivery Alert:**\n- 🔔 As soon as the farmer assigns or updates the delivery agent, a high-priority interactive popup appears on the customer's dashboard.\n- 📞 Includes the agent's name, phone number, vehicle type, and a direct **Call Agent** action for seamless coordination.`
+    },
+    {
+      keywords: ["upi", "bank", "account creation", "payment id"],
+      answer: `**Farmer UPI ID Setup & Settlements:**\n- 💳 Farmers can enter their custom UPI ID (e.g. \`kisan@okhdfcbank\`) during registration or update it anytime in their Farmer Profile.\n- ⚡ Direct UPI settlements bypass intermediate gateway delays.\n- 🚫 FarmiQ has no hardcoded default fallback IDs; your custom UPI is securely linked.`
+    },
+    {
+      keywords: ["digital contract", "escrow", "verified buyer"],
+      answer: `**Digital Contracts & 100% Escrow Protection:**\n- 🤝 Verified institutional buyers (retail chains, wholesalers, FPOs) create Digital Contracts with **100% pre-funded Escrow**.\n- 🔒 Funds are securely locked in platform escrow before harvest pickup, ensuring 0 transit rejection risk.\n- 💸 **Auto Payout:** When the buyer confirms delivery, escrow releases funds directly to the farmer with a transparent 1.5% platform fee split.`
+    },
+    {
+      keywords: ["fee split", "platform fee", "1.5%"],
+      answer: `**1.5% Platform Fee Split:**\n- ⚖️ For escrow-backed digital contracts, FarmiQ applies a fair 1.5% platform fee split upon buyer delivery confirmation.\n- 🏛️ Covers institutional escrow banking security, legal contract compliance, and dispute mediation.`
+    },
+    {
+      keywords: ["grievance", "dispute", "admin", "complainant", "counterparty"],
+      answer: `**Informed Grievance & Dispute Desk:**\n- ⚖️ When a dispute is filed, the FarmiQ System Admin mediates via an informed dispute console.\n- 📋 **Complete Visibility:** Displays Complainant (Name, Role, Mobile, Location) and Counterparty (Farmer/Customer Contact, Produce & Order Details).\n- 🛡️ The Admin can inspect evidence and authorize full release to the farmer or fair refund to the customer.`
+    },
+    {
+      keywords: ["mandi", "apmc", "rate", "location", "haversine"],
+      answer: `**Location-Based Live Mandi Prices:**\n- 📍 FarmiQ tracks AGMARKNET daily benchmark prices across 20+ APMC Mandis (Pune, Lasalgaon, Azadpur, Vashi, Kolar, Guntur, and more).\n- 🧭 **Haversine Distance:** Uses GPS or district selection to calculate road distance and display your closest APMC hub first.\n- ⚖️ Toggle between **Per Kg** and **Per Quintal** (1 Quintal = 100 Kg) with real-time arrivals and price trends (Up/Down/Stable).`
+    },
+    {
+      keywords: ["cold storage", "godown", "warehouse", "perishable"],
+      answer: `**Cold Storage & Logistics Booking:**\n- ❄️ Farmers can reserve temperature-controlled space for perishable crops (potatoes, onions, tomatoes, apples) directly in the **Storage & Logistics** tab.\n- 🛡️ Prevents post-harvest rot and distress sales during sudden market supply surges.`
+    },
+    {
+      keywords: ["list produce", "sell", "harvest", "add crop"],
+      answer: `**Listing Produce on FarmiQ:**\n- 🌾 In the Farmer Dashboard, click **Add Produce Listing**.\n- 🏷️ Select crop name, variety, available quantity, price per kg, and quality grade (Grade-A / Grade-B).\n- 📸 All produce cards display verified crop photography for maximum customer confidence.`
+    },
+    {
+      keywords: ["tracking", "live track", "map"],
+      answer: `**Live Order Tracking:**\n- 🗺️ In the Customer Dashboard, click **Live Tracking** on any active order.\n- 📍 View real-time dispatch progress: Preparing ➔ Picked Up ➔ In Transit ➔ Out for Delivery ➔ Delivered.\n- 🚚 Includes driver contact, vehicle registration number, and estimated arrival time.`
+    },
+    {
+      keywords: ["register", "test account", "create account"],
+      answer: `**Account Creation & Testing:**\n- 👥 Click **Register** on the top navigation bar.\n- 🎯 Select your role: **Farmer** (sell crops & receive payouts), **Customer** (order fresh produce direct from farm), or **Verified Buyer** (bulk procurement & digital contracts).\n- 🚀 FarmiQ has zero registration fees for Indian farmers.`
+    },
+    {
+      keywords: ["language", "hindi", "telugu", "marathi"],
+      answer: `**Multi-Language Support:**\n- 🌐 FarmiQ natively supports 4 languages: **English**, **Hindi (हिंदी)**, **Telugu (తెలుగు)**, and **Marathi (मराठी)**.\n- 🔄 Switch languages anytime using the language selector dropdown in the top navigation bar.`
+    }
+  ];
+
   // AI Chatbot
   app.post("/api/chat", async (req, res) => {
     try {
       const { message, userRole } = req.body;
       if (!message) return res.status(400).json({ error: "Message is required" });
 
+      const cleanMsg = String(message).toLowerCase();
+
+      // Check if message matches FarmiQ Knowledge Base
+      let matchedKbAnswer: string | null = null;
+      for (const entry of farmiqKnowledgeBase) {
+        if (entry.keywords.some(kw => cleanMsg.includes(kw))) {
+          matchedKbAnswer = entry.answer;
+          break;
+        }
+      }
+
       const client = getGeminiClient();
       if (!client) {
+        if (matchedKbAnswer) {
+          return res.json({ reply: matchedKbAnswer });
+        }
         return res.json({
-          reply: `[Kisan Mitra AI] For "${message}": Current Mandi market rates fluctuate based on arrival volumes at APMC centers. For direct selling, ensure produce is graded, calculate direct transport costs, and consider cold storage if market prices are low. Feel free to ask about Tomato, Onion, Potato, Wheat, or any farming questions!`
+          reply: `[Kisan Mitra AI] For "${message}": Current Mandi market rates fluctuate based on arrival volumes at APMC centers. For direct selling, ensure produce is graded, calculate direct transport costs, and consider cold storage if market prices are low. Feel free to ask about Tomato, Onion, Potato, Wheat, Cash on Delivery, or Escrow Contracts!`
         });
       }
 
-      const systemPrompt = `You are "Kisan Mitra / FarmiQ Agri-Advisor", an expert Indian agronomist and marketplace advisor.
-- Direct delivery offers affordable distance-based delivery rates.
-- We support real-time Mandi price benchmarks across 20+ APMC markets.
-- We offer Cold Storage & Godown booking to avoid distress sales.
-- Digital Contracts & Buyer Demands enable forward pricing and escrow locks.
+      const systemPrompt = `You are "Kisan Mitra / FarmiQ Agri-Advisor", an expert Indian agronomist and marketplace advisor for FarmiQ.
+Key FarmiQ platform facts:
+- Direct farm-to-consumer marketplace with distance-tiered delivery (credited 100% to farmer).
+- Cash on Delivery (COD) has Zero Deduction Guarantee for customers.
+- Verified Buyers use 100% pre-funded Escrow Digital Contracts (1.5% fee split).
+- Live Mandi prices calculate road distance to 20+ APMC hubs across India.
 - Role of user: ${userRole || "User"}.
-Answer warmly and concisely in simple terms. Provide actionable farming and market advice.`;
+${matchedKbAnswer ? `Verified FarmiQ Knowledge Context: ${matchedKbAnswer}` : ""}
+Answer warmly and concisely in simple markdown bullet points. Provide actionable farming and marketplace guidance.`;
 
       const response = await client.models.generateContent({
         model: "gemini-3.8-flash",
@@ -3640,11 +3708,18 @@ Answer warmly and concisely in simple terms. Provide actionable farming and mark
         ]
       });
 
-      res.json({ reply: response.text });
+      res.json({ reply: response.text || matchedKbAnswer });
     } catch (err: any) {
       console.error("AI Chat Error:", err);
+      // Fallback gracefully to knowledge base if available
+      const cleanMsg = String(req.body?.message || '').toLowerCase();
+      for (const entry of farmiqKnowledgeBase) {
+        if (entry.keywords.some(kw => cleanMsg.includes(kw))) {
+          return res.json({ reply: entry.answer });
+        }
+      }
       res.json({
-        reply: `Kisan Mitra recommendation: Keep produce sorted by grade, check nearby APMC daily arrivals, and utilize cold storage if holding for higher prices. (Low-cost direct transport available).`
+        reply: `Kisan Mitra recommendation: Check nearby APMC daily arrivals on our Live Mandi Rates page, sort crops by quality grade, and utilize Cold Storage if holding for higher prices.`
       });
     }
   });
