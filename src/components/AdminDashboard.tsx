@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, Users, Package, ShoppingBag, IndianRupee, Warehouse, 
   FileText, AlertTriangle, CheckCircle, RefreshCw, Eye, Truck, FilePlus, Filter,
-  ShieldCheck, Building2, Check, X, Phone, Mail, MapPin, CheckCircle2, XCircle,
-  Database, Cloud, HardDrive
+  ShieldCheck, Building2, Check, X, Phone, Mail, MapPin, CheckCircle2, XCircle
 } from 'lucide-react';
 import { User, Product, Order, Dispute, LanguageCode, CustomerRequirement, StorageBooking, VerifiedBuyer } from '../types';
 import { api } from '../api';
@@ -19,20 +18,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
   const t = translations[language];
   const [overview, setOverview] = useState<any>(null);
   const [usersList, setUsersList] = useState<User[]>([]);
-  const [activeView, setActiveView] = useState<'overview' | 'requirements' | 'storage' | 'users' | 'buyers' | 'disputes'>('overview');
+  const [activeView, setActiveView] = useState<'overview' | 'requirements' | 'storage' | 'users' | 'buyers' | 'disputes' | 'escrow'>('overview');
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [requirements, setRequirements] = useState<CustomerRequirement[]>([]);
   const [storageBookings, setStorageBookings] = useState<StorageBooking[]>([]);
   const [buyersList, setBuyersList] = useState<VerifiedBuyer[]>([]);
+  const [monetization, setMonetization] = useState<any>(null);
   const [buyerFilter, setBuyerFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('ALL');
   const [verifyingBuyerId, setVerifyingBuyerId] = useState<string | null>(null);
   const [buyerActionMsg, setBuyerActionMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  // Cloud Database state
-  const [dbStatus, setDbStatus] = useState<any>(null);
-  const [isSyncingDb, setIsSyncingDb] = useState(false);
-  const [dbSyncMsg, setDbSyncMsg] = useState<string | null>(null);
 
   // Live tracking modal for Admin
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
@@ -51,14 +46,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
   const fetchAdminData = async (isFirstLoad = false) => {
     try {
       if (isFirstLoad) setLoading(true);
-      const [over, uList, dList, rList, sList, bList, dbStat] = await Promise.all([
+      const [over, uList, dList, rList, sList, bList, mData] = await Promise.all([
         api.getAdminOverview(),
         api.getAdminUsers(),
         api.getDisputes(),
         api.getRequirements(),
         api.getStorageBookings(),
         api.getAdminBuyers().catch(() => []),
-        api.getDbStatus().catch(() => null)
+        api.getAdminMonetization().catch(() => null)
       ]);
       setOverview(over);
       setUsersList(uList.users || []);
@@ -66,7 +61,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
       setRequirements(rList || []);
       setStorageBookings(sList || []);
       setBuyersList(bList || []);
-      if (dbStat) setDbStatus(dbStat);
+      setMonetization(mData);
     } catch (err) {
       console.error("Admin sync error:", err);
     } finally {
@@ -79,21 +74,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
     const interval = setInterval(() => fetchAdminData(false), 3000); // Live 3-second sync without screen freeze
     return () => clearInterval(interval);
   }, []);
-
-  const handleManualDbSync = async () => {
-    setIsSyncingDb(true);
-    setDbSyncMsg(null);
-    try {
-      const res = await api.syncDb();
-      if (res.status) setDbStatus(res.status);
-      setDbSyncMsg("✓ Synced with database!");
-    } catch (err: any) {
-      setDbSyncMsg(`⚠️ Sync failed: ${err.message}`);
-    } finally {
-      setIsSyncingDb(false);
-      setTimeout(() => setDbSyncMsg(null), 4000);
-    }
-  };
 
   const handleVerifyBuyer = async (buyerId: string) => {
     setVerifyingBuyerId(buyerId);
@@ -194,74 +174,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
         </button>
       </div>
 
-      {/* Cloud Database & Persistent Storage Status Banner */}
-      <div className="bg-stone-900 text-white rounded-2xl p-4 sm:p-5 mb-6 border border-stone-800 shadow-md">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
-              dbStatus?.provider === 'mongodb' 
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
-                : dbStatus?.provider === 'postgres' 
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-            }`}>
-              {dbStatus?.provider === 'mongodb' ? (
-                <Cloud className="w-5 h-5" />
-              ) : dbStatus?.provider === 'postgres' ? (
-                <Database className="w-5 h-5" />
-              ) : (
-                <HardDrive className="w-5 h-5" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-bold text-sm font-['Outfit']">Database Persistence:</span>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1.5 ${
-                  dbStatus?.connected 
-                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' 
-                    : 'bg-amber-950 text-amber-300 border border-amber-700'
-                }`}>
-                  <span className={`w-2 h-2 rounded-full ${dbStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
-                  {dbStatus?.provider === 'mongodb' ? 'MongoDB Atlas (Cloud)' : dbStatus?.provider === 'postgres' ? 'PostgreSQL (Cloud)' : 'Local File Storage'}
-                </span>
-                {dbStatus?.counts && (
-                  <span className="text-[11px] text-stone-400 bg-stone-800 px-2 py-0.5 rounded-md font-mono">
-                    {dbStatus.counts.users} Users • {dbStatus.counts.products} Products • {dbStatus.counts.orders} Orders
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-stone-300 mt-1">
-                {dbStatus?.statusMessage || 'Checking database connection...'}
-                {dbStatus?.lastSyncedAt && (
-                  <span className="text-stone-400 ml-2 text-[11px]">
-                    • Last synced: {new Date(dbStatus.lastSyncedAt).toLocaleTimeString()}
-                  </span>
-                )}
-              </p>
-              {dbStatus?.provider === 'local' && (
-                <div className="mt-2 text-[11px] text-amber-300 bg-amber-950/60 px-3 py-1.5 rounded-lg border border-amber-800/60">
-                  💡 <strong>To persist data on Render across redeploys:</strong> Add <code className="bg-stone-800 px-1 py-0.5 rounded text-amber-200">MONGODB_URI</code> to your Render Environment Variables.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
-            {dbSyncMsg && (
-              <span className="text-xs font-semibold text-emerald-400">{dbSyncMsg}</span>
-            )}
-            <button
-              onClick={handleManualDbSync}
-              disabled={isSyncingDb}
-              className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDb ? 'animate-spin text-emerald-400' : ''}`} />
-              <span>{isSyncingDb ? 'Syncing...' : 'Sync Database'}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* KPI Overview Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <div className="bg-white p-5 rounded-xl border border-stone-200 shadow-2xs">
@@ -357,7 +269,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
           }`}
         >
           <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-          <span>Disputes Desk ({disputes.length})</span>
+          <span>Grievance Desk ({disputes.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveView('escrow')}
+          className={`px-3 sm:px-4 py-2.5 text-xs font-bold border-b-2 transition flex items-center gap-1.5 shrink-0 ${
+            activeView === 'escrow' ? 'border-stone-900 text-stone-900' : 'border-transparent text-stone-500 hover:text-stone-800'
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
+          <span>Contracts Escrow & Monetization</span>
         </button>
       </div>
 
@@ -866,9 +787,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
         </div>
       )}
 
-      {/* VIEW 3: DISPUTES DESK */}
+      {/* VIEW 3: DISPUTES & GRIEVANCE DESK (FULLY INFORMED) */}
       {activeView === 'disputes' && (
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-stone-900 font-['Outfit']">Grievance & Dispute Resolution Desk</h3>
+              <p className="text-xs text-stone-500">
+                Detailed complainant & counterparty profiles, contact numbers, order value, and wise escrow mediation
+              </p>
+            </div>
+            <span className="text-xs font-bold text-stone-700 bg-stone-100 px-3 py-1 rounded-full">
+              {disputes.filter(d => d.status !== 'RESOLVED').length} Pending • {disputes.filter(d => d.status === 'RESOLVED').length} Settled
+            </span>
+          </div>
+
           {disputes.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-dashed border-stone-300">
               <CheckCircle className="w-12 h-12 text-emerald-600 mx-auto mb-2" />
@@ -877,77 +810,380 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
             </div>
           ) : (
             disputes.map((d) => (
-              <div key={d.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold text-stone-800">Ticket #{d.id}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                      d.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'
+              <div key={d.id} className="bg-white rounded-2xl border border-stone-200 p-6 shadow-xs space-y-4 hover:border-amber-300 transition">
+                {/* Header Ticket Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-stone-100 gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-mono text-xs font-extrabold bg-stone-900 text-white px-2.5 py-1 rounded-lg">
+                      Ticket #{d.id}
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider uppercase ${
+                      d.status === 'RESOLVED' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-red-100 text-red-800 border border-red-300 animate-pulse'
                     }`}>
                       {d.status}
                     </span>
-                    {d.order_id && <span className="text-xs text-stone-500">Related Order: #{d.order_id}</span>}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                      Category: {d.reason_category || 'Order Fulfillment & Quality'}
+                    </span>
+                    {d.order_id && (
+                      <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-md">
+                        Order #{d.order_id}
+                      </span>
+                    )}
                   </div>
-                  <h4 className="text-sm font-bold text-stone-900">{d.subject}</h4>
-                  <p className="text-xs text-stone-600">{d.description}</p>
-                  <p className="text-[11px] text-stone-400">
-                    Filed by: {d.filed_by_name} ({d.filed_by_role})
+
+                  <span className="text-[11px] text-stone-400">
+                    Filed on {new Date(d.created_at).toLocaleDateString()} at {new Date(d.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+
+                {/* Complainant vs Counterparty Informed Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Complainant Card */}
+                  <div className="p-4 rounded-xl bg-rose-50/50 border border-rose-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-rose-200">
+                      <span className="font-bold text-rose-950 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-rose-700" />
+                        <span>Complainant (Filed Grievance)</span>
+                      </span>
+                      <span className="px-2 py-0.2 rounded-full text-[10px] font-extrabold uppercase bg-rose-200 text-rose-900">
+                        {d.filed_by_role || 'Customer'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-stone-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-stone-500">Full Name:</span>
+                        <strong className="text-stone-900">{d.filed_by_name}</strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-stone-500">Mobile Number:</span>
+                        {d.filed_by_phone ? (
+                          <a href={`tel:${d.filed_by_phone}`} className="font-bold text-emerald-800 hover:underline flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-emerald-600" />
+                            <span>{d.filed_by_phone}</span>
+                          </a>
+                        ) : (
+                          <span className="text-stone-400">Not recorded</span>
+                        )}
+                      </div>
+                      {d.filed_by_email && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-stone-500">Email:</span>
+                          <a href={`mailto:${d.filed_by_email}`} className="text-blue-700 hover:underline flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-blue-500" />
+                            <span>{d.filed_by_email}</span>
+                          </a>
+                        </div>
+                      )}
+                      {d.filed_by_location && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-stone-500">Location / Address:</span>
+                          <span className="text-stone-800 text-right truncate max-w-[200px]">{d.filed_by_location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Counterparty Card */}
+                  <div className="p-4 rounded-xl bg-teal-50/50 border border-teal-200 space-y-2 text-xs">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-teal-200">
+                      <span className="font-bold text-teal-950 flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-teal-700" />
+                        <span>Counterparty (Reported Party)</span>
+                      </span>
+                      <span className="px-2 py-0.2 rounded-full text-[10px] font-extrabold uppercase bg-teal-200 text-teal-900">
+                        {d.counterparty_role || (d.filed_by_role === 'customer' ? 'Farmer / Seller' : 'Customer')}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-stone-700">
+                      <div className="flex items-center justify-between">
+                        <span className="text-stone-500">Name:</span>
+                        <strong className="text-stone-900">{d.counterparty_name || 'Assigned Seller'}</strong>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-stone-500">Mobile Number:</span>
+                        {d.counterparty_phone ? (
+                          <a href={`tel:${d.counterparty_phone}`} className="font-bold text-emerald-800 hover:underline flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-emerald-600" />
+                            <span>{d.counterparty_phone}</span>
+                          </a>
+                        ) : (
+                          <span className="text-stone-400">Available on Order Dispatch</span>
+                        )}
+                      </div>
+                      {d.counterparty_location && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-stone-500">Farm / Location:</span>
+                          <span className="text-stone-800 text-right truncate max-w-[200px]">{d.counterparty_location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Linked Transaction / Order Summary */}
+                {d.order_id && (
+                  <div className="p-3 bg-stone-50 rounded-xl border border-stone-200 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div>
+                      <span className="text-stone-500">Produce: </span>
+                      <strong className="text-stone-900">{d.product_name || 'Farm Lot Item'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-stone-500">Order Amount: </span>
+                      <strong className="text-emerald-800">₹{d.order_amount ?? 'Verified'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-stone-500">Payment Channel: </span>
+                      <strong className="text-stone-900">{d.payment_method || 'Escrow / UPI'}</strong>
+                    </div>
+                  </div>
+                )}
+
+                {/* Grievance Subject & Description */}
+                <div className="space-y-1">
+                  <h4 className="text-sm font-bold text-stone-900 flex items-center gap-1.5">
+                    <span>Issue:</span>
+                    <span>{d.subject}</span>
+                  </h4>
+                  <p className="text-xs text-stone-600 leading-relaxed bg-stone-50/80 p-3 rounded-xl border border-stone-200/80">
+                    {d.description}
                   </p>
-                  {d.resolution && (
-                    <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 font-medium mt-2">
-                      Resolution: {d.resolution}
+                </div>
+
+                {/* Resolution Badge or Resolve Button */}
+                <div className="pt-2 flex items-center justify-between flex-wrap gap-2">
+                  {d.resolution ? (
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-950 flex-1">
+                      <strong>✓ Official Admin Resolution:</strong> {d.resolution}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 ml-auto">
+                      <button
+                        onClick={() => {
+                          setSelectedDispute(d);
+                          setResolutionNote('Full refund processed to customer via Escrow Desk. Farmer retained product return voucher.');
+                        }}
+                        className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-xl shadow-xs transition cursor-pointer flex items-center gap-1.5"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Resolve Grievance Wisely</span>
+                      </button>
                     </div>
                   )}
                 </div>
-
-                {d.status !== 'RESOLVED' && (
-                  <button
-                    onClick={() => {
-                      setSelectedDispute(d);
-                      setResolutionNote('Full refund processed to customer account via Escrow.');
-                    }}
-                    className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs rounded-xl shadow-xs transition shrink-0"
-                  >
-                    Resolve Dispute
-                  </button>
-                )}
               </div>
             ))
           )}
         </div>
       )}
 
+      {/* VIEW 4: DIGITAL CONTRACTS ESCROW & MONETIZATION DESK */}
+      {activeView === 'escrow' && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-bold text-stone-900 font-['Outfit']">Digital Contracts Escrow & Monetization</h3>
+              <p className="text-xs text-stone-500">Institutional forward contract escrow holding, farmer payouts, and 1.5% platform monetization</p>
+            </div>
+          </div>
+
+          {/* Monetization KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-xl border border-purple-200 shadow-2xs">
+              <span className="text-xs font-bold text-purple-900 uppercase tracking-wider block mb-1">
+                Platform Monetization Fee (1.5%)
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-purple-900">
+                  ₹{monetization?.total_platform_fee_collected ?? 0}
+                </span>
+                <IndianRupee className="w-5 h-5 text-purple-600" />
+              </div>
+              <p className="text-[11px] text-purple-700 mt-1">Platform fee auto-deducted upon confirmed delivery</p>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-2xs">
+              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider block mb-1">
+                Funds Held in Escrow
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-amber-900">
+                  ₹{monetization?.active_escrow_balance ?? 0}
+                </span>
+                <ShieldCheck className="w-5 h-5 text-amber-600" />
+              </div>
+              <p className="text-[11px] text-amber-700 mt-1">
+                {monetization?.active_in_escrow_count ?? 0} active institutional contract(s) secured
+              </p>
+            </div>
+
+            <div className="bg-white p-5 rounded-xl border border-emerald-200 shadow-2xs">
+              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider block mb-1">
+                Settled Farmer Payouts
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-2xl font-black text-emerald-800">
+                  ₹{monetization?.total_settled_farmer_payouts ?? 0}
+                </span>
+                <CheckCircle className="w-5 h-5 text-emerald-600" />
+              </div>
+              <p className="text-[11px] text-emerald-700 mt-1">
+                {monetization?.completed_contracts_count ?? 0} contract(s) fully fulfilled & paid to farmers
+              </p>
+            </div>
+          </div>
+
+          {/* Contracts Escrow Breakdown Table */}
+          <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs">
+            <div className="p-4 border-b border-stone-200 bg-stone-50/50 flex items-center justify-between">
+              <h4 className="text-sm font-bold text-stone-900">Digital Contracts Escrow Ledger</h4>
+              <span className="text-xs font-semibold text-stone-500">
+                Total Contracts: {monetization?.contracts?.length ?? 0}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-stone-50 text-stone-600 border-b border-stone-200 font-semibold">
+                  <tr>
+                    <th className="py-3 px-4">Contract ID / Title</th>
+                    <th className="py-3 px-4">Institutional Buyer</th>
+                    <th className="py-3 px-4">Assigned Farmer</th>
+                    <th className="py-3 px-4">Escrow Value</th>
+                    <th className="py-3 px-4">1.5% Platform Fee</th>
+                    <th className="py-3 px-4">Net Farmer Payout</th>
+                    <th className="py-3 px-4">Escrow Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {(!monetization?.contracts || monetization.contracts.length === 0) ? (
+                    <tr>
+                      <td colSpan={7} className="py-8 text-center text-stone-400">
+                        No digital contracts recorded yet. When buyers initiate forward contracts, escrow movements will display here.
+                      </td>
+                    </tr>
+                  ) : (
+                    monetization.contracts.map((c: any) => (
+                      <tr key={c.id} className="hover:bg-stone-50/60">
+                        <td className="py-3 px-4">
+                          <span className="font-mono font-bold text-stone-900 block">#{c.id}</span>
+                          <span className="text-stone-500 text-[11px]">{c.title || c.crop_name}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-semibold text-stone-800 block">{c.buyer_name}</span>
+                          <span className="text-[10px] text-stone-400">{c.buyer_company || 'Corporate Buyer'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-semibold text-stone-800 block">{c.assigned_farmer_name || 'Pooled Farmers'}</span>
+                          <span className="text-[10px] text-stone-400">{c.assigned_farmer_phone || c.delivery_location}</span>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-stone-900">
+                          ₹{c.escrow_amount || Math.round(c.required_quantity * c.offer_price)}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-purple-900">
+                          ₹{c.admin_monetization_fee || Math.round((c.escrow_amount || Math.round(c.required_quantity * c.offer_price)) * 0.015)}
+                        </td>
+                        <td className="py-3 px-4 font-bold text-emerald-800">
+                          ₹{c.net_farmer_payout || Math.round((c.escrow_amount || Math.round(c.required_quantity * c.offer_price)) * 0.985)}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                            c.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
+                            c.escrow_status === 'HELD_IN_ESCROW' ? 'bg-amber-100 text-amber-900' :
+                            'bg-stone-100 text-stone-700'
+                          }`}>
+                            {c.status === 'COMPLETED' ? '✓ RELEASED TO FARMER' : c.escrow_status === 'HELD_IN_ESCROW' ? '🔒 HELD IN ESCROW' : c.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RESOLUTION MODAL */}
       {selectedDispute && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-stone-200 text-left">
-            <h3 className="text-base font-bold text-stone-900 mb-2">Resolve Grievance #{selectedDispute.id}</h3>
-            <p className="text-xs text-stone-600 mb-4">{selectedDispute.subject}</p>
+          <div className="bg-white rounded-2xl p-6 max-w-lg w-full shadow-2xl border border-stone-200 text-left space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                  Judicious Settlement
+                </span>
+                <h3 className="text-base font-bold text-stone-900 mt-1">Resolve Grievance #{selectedDispute.id}</h3>
+              </div>
+              <button onClick={() => setSelectedDispute(null)} className="text-stone-400 hover:text-stone-700">✕</button>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 text-xs space-y-2">
+              <div className="flex justify-between">
+                <span className="text-stone-500">Complainant:</span>
+                <strong className="text-stone-900">{selectedDispute.filed_by_name} ({selectedDispute.filed_by_phone || 'No phone'})</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-stone-500">Counterparty:</span>
+                <strong className="text-stone-900">{selectedDispute.counterparty_name || 'Farmer'} ({selectedDispute.counterparty_phone || 'No phone'})</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-stone-500">Subject:</span>
+                <span className="text-stone-800 font-medium">{selectedDispute.subject}</span>
+              </div>
+            </div>
+
+            {/* Quick Presets for Informed Admin Resolution */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">Select Settlement Preset:</label>
+              <div className="space-y-1.5 text-xs">
+                {[
+                  'Full refund processed to customer via Escrow Desk. Seller issued return voucher.',
+                  'Escrow payment released to farmer after quality re-inspection verified.',
+                  '50% mutual discount and partial compensation agreed by both parties.',
+                  'Grievance settled amicably after admin telephonic mediation with farmer & customer.'
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setResolutionNote(preset)}
+                    className="w-full text-left p-2 rounded-lg border border-stone-200 hover:border-emerald-600 hover:bg-emerald-50/50 transition cursor-pointer text-[11px] text-stone-700"
+                  >
+                    • {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <form onSubmit={handleResolve} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-stone-700 mb-1">Resolution Action *</label>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Official Resolution Ruling *</label>
                 <textarea
                   rows={3}
                   required
                   value={resolutionNote}
                   onChange={(e) => setResolutionNote(e.target.value)}
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-stone-900"
+                  placeholder="Enter detailed ruling for customer, farmer, and platform logs..."
                 />
               </div>
               <div className="flex gap-3">
                 <button
                   type="button"
                   onClick={() => setSelectedDispute(null)}
-                  className="flex-1 py-2 text-xs font-bold rounded-lg border border-stone-300 text-stone-700 hover:bg-stone-50"
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 transition"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isResolving}
-                  className="flex-1 py-2 text-xs font-bold rounded-lg bg-emerald-700 text-white hover:bg-emerald-800 transition"
+                  className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-emerald-700 text-white hover:bg-emerald-800 transition shadow-xs"
                 >
-                  {isResolving ? 'Submitting...' : 'Mark as Resolved'}
+                  {isResolving ? 'Submitting Ruling...' : 'Confirm & Close Ticket'}
                 </button>
               </div>
             </form>

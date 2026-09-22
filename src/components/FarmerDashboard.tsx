@@ -5,7 +5,7 @@ import {
   FilePlus, AlertTriangle, Send, CheckCheck, RefreshCw, Phone, User as UserIcon,
   Building2, ShieldCheck, Award, Sliders, Check, ExternalLink, Briefcase, ChevronRight,
   Truck, ArrowRight, Users, Pencil, Search, FileText, QrCode, Navigation, SlidersHorizontal,
-  MessageSquare
+  MessageSquare, Banknote, UserPlus
 } from 'lucide-react';
 import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, FPOLot, VerifiedBuyer, QualityGrade, FPOMemberFarmer, NetworkFarmer, Invoice, FPOCollective, FPOCollectiveMember } from '../types';
 import { api, setStoredUser } from '../api';
@@ -92,12 +92,13 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   // Farmer UPI & Location Settings
-  const [farmerUpiId, setFarmerUpiId] = useState(user.upi_id || '9133144324@ybl');
+  const [farmerUpiId, setFarmerUpiId] = useState(user.upi_id || '');
   const [farmerUpiName, setFarmerUpiName] = useState(user.upi_name || user.full_name || 'Farmer');
   const [farmLocation, setFarmLocation] = useState(user.location || '');
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [settingsSaveMsg, setSettingsSaveMsg] = useState<string | null>(null);
+  const [pendingCodOrder, setPendingCodOrder] = useState<Order | null>(null);
 
   // Standard Verified APMC Commercial Crops (Data-Driven Preset)
   const STANDARD_CROPS = [
@@ -204,6 +205,55 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   const [mandiLoading, setMandiLoading] = useState(false);
   const [modalSelectedMandi, setModalSelectedMandi] = useState<string>('');
 
+  // Delivery Agent Assignment Modal State
+  const [assignAgentModalOrder, setAssignAgentModalOrder] = useState<Order | null>(null);
+  const [agentNameInput, setAgentNameInput] = useState('');
+  const [agentPhoneInput, setAgentPhoneInput] = useState('');
+  const [agentVehicleInput, setAgentVehicleInput] = useState('');
+  const [savingAgent, setSavingAgent] = useState(false);
+  const [assignAgentSuccessMsg, setAssignAgentSuccessMsg] = useState<string | null>(null);
+
+  const handleOpenAssignAgentModal = (order: Order) => {
+    setAssignAgentModalOrder(order);
+    setAgentNameInput(order.delivery_agent_assigned && order.driver_name ? order.driver_name : '');
+    setAgentPhoneInput(order.delivery_agent_assigned && order.driver_phone ? order.driver_phone : '');
+    setAgentVehicleInput(order.vehicle_number || '');
+    setAssignAgentSuccessMsg(null);
+  };
+
+  const handleSaveDeliveryAgent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignAgentModalOrder) return;
+    if (!agentNameInput.trim()) {
+      alert("Please enter Delivery Agent Full Name");
+      return;
+    }
+    setSavingAgent(true);
+    try {
+      await api.assignDeliveryAgent(assignAgentModalOrder.id, {
+        driver_name: agentNameInput.trim(),
+        driver_phone: agentPhoneInput.trim() || user.phone || "+91 98210 00000",
+        vehicle_number: agentVehicleInput.trim() || undefined
+      });
+      setMyOrders(prev => prev.map(o => o.id === assignAgentModalOrder.id ? {
+        ...o,
+        driver_name: agentNameInput.trim(),
+        driver_phone: agentPhoneInput.trim() || o.driver_phone,
+        vehicle_number: agentVehicleInput.trim() || o.vehicle_number,
+        delivery_agent_assigned: true
+      } : o));
+      setAssignAgentSuccessMsg(`✓ Delivery Agent "${agentNameInput.trim()}" successfully assigned! Customer has received an instant popup alert.`);
+      setTimeout(() => {
+        setAssignAgentModalOrder(null);
+        setAssignAgentSuccessMsg(null);
+      }, 1500);
+    } catch (err: any) {
+      alert(err?.message || "Failed to assign delivery agent");
+    } finally {
+      setSavingAgent(false);
+    }
+  };
+
   const isInitialMount = useRef(true);
 
   useEffect(() => {
@@ -253,6 +303,16 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       setVerifiedBuyers(buyersData);
       setNetworkFarmers(networkData);
       setCollectives(collectivesData);
+
+      // Check for incoming COD orders awaiting farmer action
+      const pendingCod = (orders || []).find((o: Order) =>
+        o.status === 'ORDERED' &&
+        (o.payment_method === 'Cash on Delivery' || o.payment_status === 'CASH_ON_DELIVERY') &&
+        !sessionStorage.getItem('dismissed_cod_popup_' + o.id)
+      );
+      if (pendingCod) {
+        setPendingCodOrder(pendingCod);
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to load farmer dashboard');
     } finally {
@@ -612,6 +672,9 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
     try {
       bc = new BroadcastChannel('farmiq_bus');
       bc.onmessage = (event) => {
+        if (event.data?.type === 'NEW_COD_ORDER' && event.data.order) {
+          setPendingCodOrder(event.data.order);
+        }
         if (event.data?.type) {
           loadFarmerData();
         }
@@ -627,6 +690,9 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       evtSource.onmessage = (event) => {
         try {
           const parsed = JSON.parse(event.data);
+          if (parsed && parsed.type === 'NEW_COD_ORDER' && parsed.data?.order) {
+            setPendingCodOrder(parsed.data.order);
+          }
           if (parsed && (parsed.type || parsed.data)) {
             loadFarmerData();
           }
@@ -834,14 +900,37 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
     setMandiRateDetails(null);
   };
 
-  // Delete product
+  // Delete product permanently
   const handleDeleteProduct = async (id: number) => {
-    if (!confirm('Are you sure you want to delete this listing?')) return;
+    if (!confirm('Are you sure you want to permanently delete this listing? It will be completely removed from the platform.')) return;
     try {
+      // Optimistic removal from state
+      setMyProducts(prev => prev.filter(p => p.id !== id));
       await api.deleteProduct(id);
-      loadFarmerData();
+      await loadFarmerData();
     } catch (err: any) {
       alert(err.message || 'Failed to delete listing');
+      await loadFarmerData();
+    }
+  };
+
+  // Farmer accepts or rejects Cash on Delivery order
+  const handleCodAction = async (orderId: number, accept: boolean) => {
+    setUpdatingOrderId(orderId);
+    try {
+      await api.codOrderAction(orderId, accept);
+      sessionStorage.setItem('dismissed_cod_popup_' + orderId, 'true');
+      setPendingCodOrder(null);
+      if (accept) {
+        setOrderNotification(`🎉 COD Order #${orderId} accepted! Order moved directly to PREPARING.`);
+      } else {
+        setOrderNotification(`COD Order #${orderId} rejected. Customer notified with zero payment deduction.`);
+      }
+      await loadFarmerData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to process COD order');
+    } finally {
+      setUpdatingOrderId(null);
     }
   };
 
@@ -976,15 +1065,28 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   };
 
   // Update order status with optimistic sync and notification
-  const handleStatusUpdate = async (orderId: number, nextStatus: string) => {
+  const handleStatusUpdate = async (orderId: number, nextStatus: string, extraData?: { driver_name?: string | null; driver_phone?: string | null; vehicle_number?: string | null }) => {
+    // Check if moving to PREPARING or TRANSIT without payment/COD
+    if (nextStatus === 'PREPARING' || nextStatus === 'TRANSIT') {
+      const targetOrder = myOrders.find(o => o.id === orderId);
+      if (targetOrder) {
+        const isPaid = targetOrder.payment_status === 'PAID' || targetOrder.status === 'PAID' || targetOrder.payment_status === 'LOCKED_IN_ESCROW';
+        const isCod = targetOrder.payment_method === 'Cash on Delivery' || targetOrder.payment_status === 'CASH_ON_DELIVERY';
+        if (!isPaid && !isCod) {
+          alert('Customer payment or Cash on Delivery confirmation is required before preparing or transiting this order.');
+          return;
+        }
+      }
+    }
+
     setUpdatingOrderId(orderId);
     setOrderNotification(null);
     // Optimistic UI updates across orders and lots
-    setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus as any } : o));
+    setMyOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: nextStatus as any, ...(extraData || {}) } : o));
     setLots(prev => prev.map(l => (l.linked_order_id === orderId || (l as any).id === orderId) ? { ...l, fulfillment_status: nextStatus as any } : l));
     
     try {
-      await api.updateOrderStatus(orderId, nextStatus);
+      await api.updateOrderStatus(orderId, nextStatus, extraData);
       const label = nextStatus === 'PREPARING' ? 'Packing & Preparation in progress' :
                     nextStatus === 'TRANSIT' ? 'Handed over to Transit' :
                     nextStatus === 'DELIVERED' ? 'Delivered & Escrow released' : 'Updated';
@@ -1007,12 +1109,33 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
     }
   };
 
+  const promptDriverDetails = (): { driver_name?: string | null; driver_phone?: string | null; vehicle_number?: string | null } | null => {
+    const driverInput = window.prompt("Enter Delivery Driver / Transporter name (optional - click OK or Leave Blank for Direct Farm Dispatch):", "");
+    if (driverInput === null) return null; // user clicked Cancel
+    const dName = driverInput.trim();
+    let dPhone: string | null = null;
+    let vNum: string | null = null;
+    if (dName) {
+      const p = window.prompt("Enter Driver Phone Number (optional):", "");
+      if (p && p.trim()) dPhone = p.trim();
+      const v = window.prompt("Enter Vehicle Number (optional):", "");
+      if (v && v.trim()) vNum = v.trim();
+    }
+    return {
+      driver_name: dName || null,
+      driver_phone: dPhone,
+      vehicle_number: vNum
+    };
+  };
+
   const handleDispatchOrderForLot = (lot: FPOLot) => {
+    const driverDetails = promptDriverDetails();
+    if (driverDetails === null) return;
     const linked = myOrders.find(o => o.lot_id === lot.id || (lot.linked_order_id && o.id === lot.linked_order_id));
     if (linked) {
-      handleStatusUpdate(linked.id, 'TRANSIT');
+      handleStatusUpdate(linked.id, 'TRANSIT', driverDetails);
     } else if (lot.linked_order_id) {
-      handleStatusUpdate(lot.linked_order_id, 'TRANSIT');
+      handleStatusUpdate(lot.linked_order_id, 'TRANSIT', driverDetails);
     }
   };
 
@@ -1027,7 +1150,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
 
   // Aggregates
   const totalAvailableQty = myProducts.reduce((acc, p) => acc + (p.quantity || 0), 0);
-  const totalEarnings = myOrders.reduce((acc, o) => o.status !== 'CANCELLED' ? acc + o.product_total : acc, 0);
+  const totalEarnings = myOrders.reduce((acc, o) => (o.status !== 'CANCELLED' && o.status !== 'REJECTED') ? acc + (o.grand_total || ((o.product_total || 0) + (o.delivery_charge || 0))) : acc, 0);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -1095,7 +1218,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             <span className="text-2xl font-bold text-emerald-800">₹{totalEarnings}</span>
             <IndianRupee className="w-5 h-5 text-emerald-600" />
           </div>
-          <p className="text-[11px] text-emerald-600 mt-1 font-semibold">100% direct realization</p>
+          <p className="text-[11px] text-emerald-600 mt-1 font-semibold">100% direct realization (Produce + Delivery fees)</p>
         </div>
       </div>
 
@@ -2311,8 +2434,10 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 </div>
               )}
               {myOrders.map((o) => {
-                const isPaid = o.payment_status === 'PAID' || o.status === 'PAID';
-                const isConfirmed = o.status === 'CONFIRMED' || o.status === 'ACCEPTED' || isPaid || ['PREPARING', 'TRANSIT', 'DELIVERED'].includes(o.status);
+                const isPaid = o.payment_status === 'PAID' || o.status === 'PAID' || o.payment_status === 'LOCKED_IN_ESCROW';
+                const isCOD = o.payment_method === 'Cash on Delivery' || o.payment_status === 'CASH_ON_DELIVERY';
+                const isPaymentSettled = isPaid || isCOD;
+                const isConfirmed = o.status === 'CONFIRMED' || o.status === 'ACCEPTED' || isPaymentSettled || ['PREPARING', 'TRANSIT', 'DELIVERED'].includes(o.status);
 
                 return (
                 <div key={o.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -2324,6 +2449,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                         o.status === 'TRANSIT' ? 'bg-blue-100 text-blue-800' :
                         o.status === 'PREPARING' ? 'bg-amber-100 text-amber-800' :
                         isPaid ? 'bg-emerald-100 text-emerald-900 border border-emerald-300' :
+                        isCOD ? 'bg-teal-100 text-teal-900 border border-teal-300' :
                         o.status === 'CONFIRMED' || o.status === 'ACCEPTED' ? 'bg-teal-100 text-teal-800' :
                         o.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
                         'bg-amber-100 text-amber-900 animate-pulse border border-amber-300'
@@ -2333,6 +2459,11 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                       {isPaid && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-600 text-white flex items-center gap-1">
                           <Check className="w-3 h-3" /> PAID via UPI
+                        </span>
+                      )}
+                      {isCOD && !isPaid && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-600 text-white flex items-center gap-1">
+                          <Banknote className="w-3 h-3" /> Cash on Delivery
                         </span>
                       )}
                       <span className="text-[11px] text-stone-500">
@@ -2400,15 +2531,55 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
 
                     <div className="flex flex-wrap items-center gap-3 pt-2 text-xs">
                       <span>Produce: <strong className="text-stone-800">₹{o.product_total}</strong></span>
-                      <span>•</span>
-                      <span>Delivery ({o.distance_km} km): <strong className="text-stone-800">₹{o.delivery_charge}</strong></span>
-                      <span>•</span>
-                      <span>Grand Total: <strong className="text-emerald-800 font-bold text-sm">₹{o.grand_total}</strong></span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                        isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-600'
-                      }`}>
-                        {isPaid ? `✓ Paid via UPI (UTR: ${o.transaction_id || 'VERIFIED'})` : '⏳ Awaiting UPI Payment'}
+                      <span>+</span>
+                      <span className="text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        Delivery Fee to You: <strong>₹{o.delivery_charge}</strong>
                       </span>
+                      <span>=</span>
+                      <span>Total Farmer Payout: <strong className="text-emerald-800 font-bold text-sm">₹{o.grand_total}</strong></span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
+                        isPaid ? 'bg-emerald-100 text-emerald-800' : isCOD ? 'bg-teal-100 text-teal-800 border border-teal-300' : 'bg-amber-50 text-amber-800 border border-amber-300'
+                      }`}>
+                        {isPaid ? `✓ Paid via UPI (UTR: ${o.transaction_id || 'VERIFIED'})` : isCOD ? '💵 Cash on Delivery (Pay at Doorstep)' : '⏳ Awaiting Customer Payment / COD Selection'}
+                      </span>
+                    </div>
+
+                    {/* Delivery Agent Assignment Card */}
+                    <div className="mt-3 p-3 rounded-xl bg-stone-50 border border-stone-200/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold ${o.delivery_agent_assigned ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                          <Truck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-stone-900">
+                              {o.delivery_agent_assigned && o.driver_name ? o.driver_name : `${o.farmer_name || user.full_name} (Farmer Direct)`}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              o.delivery_agent_assigned 
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            }`}>
+                              {o.delivery_agent_assigned ? 'Designated Delivery Agent' : 'Farmer Default Dispatch'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-stone-500 mt-0.5">
+                            Contact: <strong className="text-stone-700">{o.delivery_agent_assigned && o.driver_phone ? o.driver_phone : (o.farmer_phone || user.phone)}</strong>
+                            {o.vehicle_number ? ` • Vehicle: ${o.vehicle_number}` : ''}
+                            {!o.delivery_agent_assigned && ' • (Visible to customer until you assign an agent)'}
+                          </p>
+                        </div>
+                      </div>
+                      {o.status !== 'DELIVERED' && o.status !== 'REJECTED' && o.status !== 'CANCELLED' && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAssignAgentModal(o)}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-stone-300 hover:border-emerald-500 text-stone-800 hover:text-emerald-700 text-xs font-bold transition flex items-center gap-1.5 shadow-2xs self-start sm:self-auto cursor-pointer"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{o.delivery_agent_assigned ? 'Change Agent' : '+ Assign Delivery Agent'}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -2428,27 +2599,69 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
 
                     {o.status === 'ORDERED' && (
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleRejectOrder(o.id); }}
-                          disabled={updatingOrderId === o.id}
-                          className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition cursor-pointer"
-                        >
-                          Reject
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); handleAcceptOrder(o.id); }}
-                          disabled={updatingOrderId === o.id}
-                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer disabled:bg-stone-400 flex items-center gap-1.5"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                          <span>{updatingOrderId === o.id ? 'Accepting...' : 'Accept Order (Create Invoice)'}</span>
-                        </button>
+                        {o.payment_method === 'Cash on Delivery' || o.payment_status === 'CASH_ON_DELIVERY' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleCodAction(o.id, false); }}
+                              disabled={updatingOrderId === o.id}
+                              className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition cursor-pointer"
+                            >
+                              Reject COD
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleCodAction(o.id, true); }}
+                              disabled={updatingOrderId === o.id}
+                              className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/20 transition cursor-pointer disabled:bg-stone-400 flex items-center gap-1.5"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>{updatingOrderId === o.id ? 'Accepting...' : 'Accept COD (Start Packing)'}</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleRejectOrder(o.id); }}
+                              disabled={updatingOrderId === o.id}
+                              className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs transition cursor-pointer"
+                            >
+                              Reject
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); handleAcceptOrder(o.id); }}
+                              disabled={updatingOrderId === o.id}
+                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 transition cursor-pointer disabled:bg-stone-400 flex items-center gap-1.5"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>{updatingOrderId === o.id ? 'Accepting...' : 'Accept Order (Create Invoice)'}</span>
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
 
-                    {(o.status === 'CONFIRMED' || o.status === 'ACCEPTED' || o.status === 'PAID') && (
+                    {/* Waiting for customer payment or COD before granting Prepare and Transit options */}
+                    {(o.status === 'CONFIRMED' || o.status === 'ACCEPTED') && !isPaymentSettled && (
+                      <div className="p-3 bg-amber-50 border border-amber-300 rounded-xl text-right max-w-xs space-y-1">
+                        <div className="flex items-center justify-end gap-1.5 text-xs font-bold text-amber-900">
+                          <Clock className="w-3.5 h-3.5 text-amber-600 animate-pulse shrink-0" />
+                          <span>Awaiting Customer Payment / COD</span>
+                        </div>
+                        <p className="text-[11px] text-stone-600 leading-tight">
+                          Order accepted. Customer will pay online or select Cash on Delivery. Packing & Transit options unlock immediately once paid or COD is confirmed.
+                        </p>
+                        {o.customer_phone && (
+                          <p className="text-[10px] text-stone-500">
+                            Customer phone: <span className="font-semibold text-stone-700">{o.customer_phone}</span>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {(o.status === 'CONFIRMED' || o.status === 'ACCEPTED' || o.status === 'PAID') && isPaymentSettled && (
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleStatusUpdate(o.id, 'PREPARING'); }}
@@ -2462,7 +2675,12 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                     {o.status === 'PREPARING' && (
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); handleStatusUpdate(o.id, 'TRANSIT'); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const driverDetails = promptDriverDetails();
+                          if (driverDetails === null) return;
+                          handleStatusUpdate(o.id, 'TRANSIT', driverDetails);
+                        }}
                         disabled={updatingOrderId === o.id}
                         className="w-full sm:w-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition cursor-pointer disabled:bg-stone-400 flex items-center justify-center gap-1.5"
                       >
@@ -4264,6 +4482,179 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 </>
               ) : null}
             </div>
+          </div>
+        </div>
+      )}
+      {/* INSTANT CASH ON DELIVERY (COD) ORDER ALERT POPUP FOR FARMER */}
+      {pendingCodOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border-2 border-amber-300 space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <div className="flex items-center gap-2">
+                <span className="w-9 h-9 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center">
+                  <Banknote className="w-5 h-5" />
+                </span>
+                <div>
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                    Immediate Attention
+                  </span>
+                  <h3 className="text-base font-bold text-stone-900">New Cash on Delivery Order</h3>
+                </div>
+              </div>
+              <span className="text-xs font-mono font-bold text-stone-500">#{pendingCodOrder.id}</span>
+            </div>
+
+            <div className="p-4 rounded-xl bg-stone-50 border border-stone-200 text-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 font-medium">Customer:</span>
+                <span className="font-bold text-stone-900 text-sm">{pendingCodOrder.customer_name}</span>
+              </div>
+              {pendingCodOrder.customer_phone && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500 font-medium">Phone:</span>
+                  <span className="font-bold text-emerald-800">{pendingCodOrder.customer_phone}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 font-medium">Ordered Item:</span>
+                <span className="font-bold text-stone-900">
+                  {pendingCodOrder.quantity} {pendingCodOrder.unit} {pendingCodOrder.product_name}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 font-medium">Cash to Collect on Delivery:</span>
+                <span className="font-extrabold text-emerald-800 text-base">₹{pendingCodOrder.grand_total}</span>
+              </div>
+              <div className="pt-2 border-t border-stone-200">
+                <span className="text-stone-500 font-medium block mb-0.5">Delivery Address:</span>
+                <span className="text-stone-800 font-medium leading-relaxed">{pendingCodOrder.delivery_address}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-stone-600 bg-amber-50 p-3 rounded-lg border border-amber-200">
+              💡 <strong>Accepting</strong> this order moves it directly to <strong>PREPARING</strong> for packing & sorting. 
+              <strong> Rejecting</strong> will immediately notify the customer with zero deduction.
+            </p>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => handleCodAction(pendingCodOrder.id, false)}
+                disabled={updatingOrderId === pendingCodOrder.id}
+                className="flex-1 py-2.5 rounded-xl border border-rose-300 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs transition cursor-pointer"
+              >
+                Reject Order
+              </button>
+              <button
+                type="button"
+                onClick={() => handleCodAction(pendingCodOrder.id, true)}
+                disabled={updatingOrderId === pendingCodOrder.id}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-700/20 transition cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Check className="w-4 h-4" />
+                <span>Accept COD Order</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Delivery Agent Modal */}
+      {assignAgentModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-stone-200 space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+              <div className="flex items-center gap-2">
+                <span className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                  <Truck className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">
+                    {assignAgentModalOrder.delivery_agent_assigned ? 'Change Delivery Agent' : 'Assign Delivery Agent'}
+                  </h3>
+                  <p className="text-[11px] text-stone-500">Order #{assignAgentModalOrder.id} • {assignAgentModalOrder.product_name}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAssignAgentModalOrder(null)}
+                className="text-stone-400 hover:text-stone-600 text-lg font-bold p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200/80 text-xs text-blue-900 leading-relaxed">
+              💡 <strong>Direct Dispatch Default:</strong> Until you assign a delivery agent, your name (<strong>{user.full_name}</strong>) and phone (<strong>{user.phone}</strong>) are displayed to the customer as the direct dispatch contact. Once assigned, the customer gets an instant popup alert!
+            </div>
+
+            {assignAgentSuccessMsg && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-300 text-xs text-emerald-900 font-bold flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{assignAgentSuccessMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSaveDeliveryAgent} className="space-y-3.5">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Delivery Agent Full Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Ramesh Kumar or FastAgri Express"
+                  value={agentNameInput}
+                  onChange={(e) => setAgentNameInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Delivery Agent Phone Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="e.g. +91 98765 43210"
+                  value={agentPhoneInput}
+                  onChange={(e) => setAgentPhoneInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Vehicle Registration Number <span className="text-stone-400 font-normal">(Optional)</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. MH-14-BN-2502 or EV Two-Wheeler"
+                  value={agentVehicleInput}
+                  onChange={(e) => setAgentVehicleInput(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-stone-300 text-xs focus:ring-2 focus:ring-emerald-600 focus:outline-none"
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignAgentModalOrder(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingAgent}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-700/20 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:bg-stone-400"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{savingAgent ? 'Assigning...' : 'Assign & Notify Customer'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

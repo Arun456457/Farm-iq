@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sprout, ShoppingBag, Truck, TrendingUp, ShieldCheck, ArrowRight, UserCheck, Bot, Award } from 'lucide-react';
+import { Sprout, ShoppingBag, Truck, TrendingUp, ShieldCheck, ArrowRight, UserCheck, Bot } from 'lucide-react';
 import { LanguageCode } from '../types';
 import { translations } from '../translations';
 
@@ -7,37 +7,19 @@ interface LandingPageProps {
   language: LanguageCode;
   onSelectRole: (role: 'farmer' | 'customer') => void;
   onOpenAuth: (mode: 'login' | 'register', roleHint?: 'farmer' | 'customer' | 'admin') => void;
-  onOpenSIH?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
   language,
   onSelectRole,
   onOpenAuth,
-  onOpenSIH,
 }) => {
   const t = translations[language];
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-emerald-50/50 via-white to-stone-50 flex flex-col justify-between">
       {/* Hero Section */}
-      <section className="pt-8 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center w-full">
-        {/* SIH 2025 Submission Badge */}
-        {onOpenSIH && (
-          <div className="flex justify-center mb-5">
-            <button
-              type="button"
-              onClick={onOpenSIH}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-teal-500/15 hover:from-amber-500/25 hover:to-teal-500/25 border border-amber-300 text-amber-950 font-bold text-xs shadow-xs transition hover:scale-105 cursor-pointer"
-            >
-              <Award className="w-4 h-4 text-amber-600 animate-pulse" />
-              <span>Smart India Hackathon 2025</span>
-              <span className="text-[11px] bg-amber-200 text-amber-950 font-mono font-black px-1.5 py-0.5 rounded">PS: 26132</span>
-              <span className="text-emerald-800 font-bold underline ml-1">View Official 6-Slide Pitch Deck →</span>
-            </button>
-          </div>
-        )}
-
+      <section className="pt-12 pb-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center w-full">
         {/* Floating badge */}
         <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl sm:rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold mb-6 shadow-xs max-w-full text-center">
           <Sprout className="w-4 h-4 text-emerald-700 shrink-0" />

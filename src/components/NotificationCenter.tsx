@@ -508,12 +508,18 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
       {activePopupNotif &&
         createPortal(
           <div className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in zoom-in duration-200">
-            <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl border-2 border-emerald-500 overflow-hidden flex flex-col max-h-[90vh]">
+            <div className={`relative bg-white w-full max-w-md rounded-2xl shadow-2xl border-2 overflow-hidden flex flex-col max-h-[90vh] ${
+              activePopupNotif.type === 'ORDER_REJECTED' ? 'border-rose-500' : 'border-emerald-500'
+            }`}>
             {/* Modal Header */}
-            <div className="px-5 py-4 bg-emerald-800 text-white flex items-center justify-between shrink-0">
+            <div className={`px-5 py-4 text-white flex items-center justify-between shrink-0 ${
+              activePopupNotif.type === 'ORDER_REJECTED' ? 'bg-rose-800' : 'bg-emerald-800'
+            }`}>
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center animate-pulse">
-                  <Bell className="w-4 h-4 text-emerald-200" />
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  activePopupNotif.type === 'ORDER_REJECTED' ? 'bg-rose-700' : 'bg-emerald-700 animate-pulse'
+                }`}>
+                  <Bell className="w-4 h-4 text-white" />
                 </div>
                 <div>
                   <h3 className="text-sm font-black tracking-wide">{activePopupNotif.title}</h3>
@@ -756,7 +762,28 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     </button>
                   </div>
                 </>
-              ) : (
+              ) : activePopupNotif.type === 'ORDER_REJECTED' ? (
+                /* Customer Order Rejected Alert */
+                <>
+                  <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl space-y-2.5 text-xs text-stone-800 text-center">
+                    <span className="text-3xl">❌</span>
+                    <h4 className="text-sm font-bold text-rose-900">Order Rejected by Farmer</h4>
+                    <p className="text-stone-700 font-medium leading-relaxed">{activePopupNotif.message}</p>
+                    <div className="p-2.5 bg-white rounded-lg border border-rose-200 text-[11px] text-stone-600 text-left space-y-1">
+                      <p><strong>Order ID:</strong> #{activePopupNotif.order_id}</p>
+                      <p><strong>Financial Status:</strong> No payment was deducted. Zero charge applied to your account.</p>
+                      <p className="text-stone-500">You can browse the marketplace to order from other nearby farmers.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissPopup(activePopupNotif)}
+                    className="w-full py-2.5 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Understood & Dismiss
+                  </button>
+                </>
+              ) : activePopupNotif.type === 'PAYMENT_RECEIVED' ? (
                 /* Farmer Payment Received Alert */
                 <>
                   <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl space-y-2 text-xs text-stone-800 text-center">
@@ -773,6 +800,21 @@ export const NotificationCenter: React.FC<NotificationCenterProps> = ({
                     type="button"
                     onClick={() => handleDismissPopup(activePopupNotif)}
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </>
+              ) : (
+                /* General Notification Fallback */
+                <>
+                  <div className="bg-stone-50 border border-stone-200 p-4 rounded-xl space-y-2 text-xs text-stone-800 text-center">
+                    <h4 className="text-sm font-bold text-stone-900">{activePopupNotif.title}</h4>
+                    <p className="text-stone-600">{activePopupNotif.message}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDismissPopup(activePopupNotif)}
+                    className="w-full py-2.5 bg-stone-800 hover:bg-stone-900 text-white rounded-xl text-xs font-bold transition cursor-pointer"
                   >
                     Dismiss
                   </button>

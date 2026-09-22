@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash, Eye, EyeOff, ArrowLeft, Copy, Key, MessageSquare } from 'lucide-react';
+import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash, Eye, EyeOff, ArrowLeft, Copy, Key, MessageSquare, IndianRupee } from 'lucide-react';
 import { User, UserRole, LanguageCode } from '../types';
 import { api, setAuthToken, setStoredUser } from '../api';
 import { translations } from '../translations';
@@ -33,6 +33,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [farmName, setFarmName] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [location, setLocation] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [pincode, setPincode] = useState('');
@@ -197,7 +198,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
         if (role === 'farmer') {
           payload.farm_name = farmName.trim() || 'Sahyadri Organic Farms';
-          payload.upi_id = '9133144324@ybl';
+          payload.upi_id = upiId.trim() || undefined;
           payload.upi_name = fullName.trim();
         } else if (role === 'customer') {
           payload.delivery_address = resolvedAddress;
@@ -333,7 +334,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       required
                       value={forgotIdentifier}
                       onChange={(e) => setForgotIdentifier(e.target.value)}
-                      placeholder="e.g. arun.gera456@gmail.com or 9800000000"
+                      placeholder="e.g. user123@gmail.com or 9800000000"
                       className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
                     />
                   </div>
@@ -537,7 +538,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder={mode === 'login' ? 'e.g. arun.gera456@gmail.com or 9133144324' : 'name@domain.com'}
+                placeholder={mode === 'login' ? 'e.g. user123@gmail.com or 9133144324' : 'name@domain.com'}
                 className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
               />
             </div>
@@ -554,7 +555,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+91 98000 00000"
+                  placeholder="e.g. 9800000000"
                   className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
@@ -564,7 +565,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Farm Name (Farmer only) */}
           {mode === 'register' && role === 'farmer' && (
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Farm / Orchard Name *</label>
+              <label className="block text-xs font-bold text-stone-700 mb-1">Farm Name / Brand</label>
               <div className="relative">
                 <Building className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
                 <input
@@ -576,6 +577,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
                 />
               </div>
+            </div>
+          )}
+
+          {/* Farmer Payment UPI ID (Farmer only) */}
+          {mode === 'register' && role === 'farmer' && (
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-stone-700">Farmer Bank UPI ID (Direct Payout)</label>
+                <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Direct Payout
+                </span>
+              </div>
+              <div className="relative">
+                <IndianRupee className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
+                <input
+                  type="text"
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value)}
+                  placeholder="e.g. yourname@oksbi or 9876543210@upi (optional)"
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500 font-mono"
+                />
+              </div>
+              <p className="text-[10px] text-stone-500 mt-1">
+                Enter your UPI ID so customer and institutional payments deposit directly to your bank account.
+              </p>
             </div>
           )}
 

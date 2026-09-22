@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { 
   IndianRupee, QrCode, Smartphone, CheckCircle2, AlertCircle, 
-  Loader2, X, ShieldCheck, Copy, Check, ExternalLink, Sparkles, RefreshCw
+  Loader2, X, ShieldCheck, Copy, Check, ExternalLink, Sparkles, RefreshCw, Banknote
 } from 'lucide-react';
 import { Order, Invoice } from '../types';
 import { api } from '../api';
@@ -23,7 +23,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
   onPaymentSuccess,
 }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
-  const [paymentMode, setPaymentMode] = useState<'qr' | 'manual_utr'>('qr');
+  const [paymentMode, setPaymentMode] = useState<'qr' | 'manual_utr' | 'cod'>('qr');
   const [manualUtr, setManualUtr] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processStage, setProcessStage] = useState<string | null>(null);
@@ -151,6 +151,33 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
     }
   };
 
+  // 3. Cash on Delivery (COD) Confirmation
+  const handleSelectCashOnDelivery = async () => {
+    setIsProcessing(true);
+    setErrorMsg(null);
+    setProcessStage('Registering Cash on Delivery booking...');
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+
+      const res = await api.payOrderCOD(order.id);
+
+      try {
+        const bc = new BroadcastChannel('farmiq_bus');
+        bc.postMessage({ type: 'ORDER_PAID', orderId: order.id });
+        bc.close();
+      } catch {}
+      window.dispatchEvent(new CustomEvent('farmiq_state_change', { detail: { type: 'ORDER_PAID', orderId: order.id } }));
+
+      onPaymentSuccess(res.order);
+      onClose();
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to confirm Cash on Delivery.');
+    } finally {
+      setIsProcessing(false);
+      setProcessStage(null);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4">
       <div className="relative bg-white w-full max-w-md rounded-2xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col max-h-[90vh]">
@@ -161,7 +188,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
               <IndianRupee className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-stone-900">Direct UPI Payment</h3>
+              <h3 className="text-sm font-bold text-stone-900">Choose Payment Method</h3>
               <p className="text-xs text-stone-500">
                 Order #{order.id} • {order.product_name}
               </p>
@@ -187,31 +214,43 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
           </p>
         </div>
 
-        {/* Tab Toggle: QR Code vs Manual UTR */}
+        {/* Tab Toggle: QR Code vs Manual UTR vs Cash on Delivery */}
         <div className="flex border-b border-stone-200 bg-stone-50 shrink-0">
           <button
             type="button"
             onClick={() => setPaymentMode('qr')}
-            className={`flex-1 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
               paymentMode === 'qr'
                 ? 'bg-white text-emerald-800 border-b-2 border-emerald-600 shadow-sm'
                 : 'text-stone-500 hover:text-stone-800'
             }`}
           >
-            <QrCode className="w-4 h-4" />
-            <span>Scan UPI QR Code</span>
+            <QrCode className="w-3.5 h-3.5" />
+            <span>UPI QR</span>
           </button>
           <button
             type="button"
             onClick={() => setPaymentMode('manual_utr')}
-            className={`flex-1 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
               paymentMode === 'manual_utr'
                 ? 'bg-white text-emerald-800 border-b-2 border-emerald-600 shadow-sm'
                 : 'text-stone-500 hover:text-stone-800'
             }`}
           >
-            <Smartphone className="w-4 h-4" />
-            <span>I Paid (Enter UTR)</span>
+            <Smartphone className="w-3.5 h-3.5" />
+            <span>Enter UTR</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setPaymentMode('cod')}
+            className={`flex-1 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer ${
+              paymentMode === 'cod'
+                ? 'bg-white text-emerald-800 border-b-2 border-emerald-600 shadow-sm'
+                : 'text-stone-500 hover:text-stone-800'
+            }`}
+          >
+            <Banknote className="w-3.5 h-3.5" />
+            <span>Cash on Delivery</span>
           </button>
         </div>
 
@@ -305,7 +344,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                 </p>
               </div>
             </div>
-          ) : (
+          ) : paymentMode === 'manual_utr' ? (
             /* Manual UTR Verification Form */
             <form onSubmit={handleVerifyManualUtr} className="space-y-4">
               <div className="bg-emerald-50/60 border border-emerald-200/80 p-3 rounded-xl text-xs text-emerald-900 space-y-1">
@@ -360,6 +399,63 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                 <span>Verify & Mark Order as Paid</span>
               </button>
             </form>
+          ) : (
+            /* Cash on Delivery (COD) Option */
+            <div className="space-y-4 text-left">
+              <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2.5 text-xs">
+                <div className="flex items-center gap-2 font-bold text-amber-950 text-sm">
+                  <Banknote className="w-5 h-5 text-amber-700 shrink-0" />
+                  <span>Cash on Delivery (Pay upon Arrival)</span>
+                </div>
+                <p className="text-amber-800 leading-relaxed">
+                  Pay <strong>₹{payableAmount.toLocaleString('en-IN')}</strong> in cash directly to the delivery person once your fresh harvest is delivered and inspected at your doorstep.
+                </p>
+                <div className="pt-2 border-t border-amber-200/80 space-y-1.5 text-[11px] text-amber-900">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>Zero upfront online payment needed today</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>Inspect produce freshness before paying</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    <span>Farmer immediately receives green signal to prepare & pack your order</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-600 space-y-1">
+                <div className="flex justify-between">
+                  <span>Payee Farmer:</span>
+                  <span className="font-semibold text-stone-900">{farmerName}</span>
+                </div>
+                <div className="flex justify-between font-bold text-stone-900 pt-1 border-t border-stone-200">
+                  <span>Cash Amount to Pay at Doorstep:</span>
+                  <span className="font-mono text-emerald-800 text-sm">₹{payableAmount.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                disabled={isProcessing}
+                onClick={handleSelectCashOnDelivery}
+                className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-700/20 transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Confirming Cash on Delivery...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Confirm Cash on Delivery Order (₹{payableAmount.toLocaleString('en-IN')})</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
 

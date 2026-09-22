@@ -56,6 +56,7 @@ def init_db():
         farm_name TEXT,
         location TEXT NOT NULL,
         delivery_address TEXT,
+        upi_id TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -175,6 +176,11 @@ def init_db():
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
+
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN upi_id TEXT")
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()
@@ -492,9 +498,9 @@ class FarmiQRequestHandler(http.server.BaseHTTPRequestHandler):
             tracking_info = {
                 "order_id": order_dict["id"],
                 "status": order_dict["status"],
-                "driver_name": order_dict.get("driver_name") or "Ramesh Kumar (FarmiQ Express)",
-                "driver_phone": order_dict.get("driver_phone") or "+91 98450 12890",
-                "vehicle_number": order_dict.get("vehicle_number") or "KA-04-AG-7821",
+                "driver_name": order_dict.get("driver_name"),
+                "driver_phone": order_dict.get("driver_phone"),
+                "vehicle_number": order_dict.get("vehicle_number"),
                 "distance_km": order_dict["distance_km"],
                 "eta_minutes": max(5, int(order_dict["distance_km"] * 2.5)),
                 "current_location": "En route via NH-44 Agricultural Corridor",
@@ -617,6 +623,7 @@ class FarmiQRequestHandler(http.server.BaseHTTPRequestHandler):
             farm_name = data.get('farm_name', '').strip()
             location = data.get('location', '').strip()
             delivery_address = data.get('delivery_address', '').strip()
+            upi_id = data.get('upi_id', '').strip()
 
             if not email or not password or not full_name:
                 return self._send_error("Full name, email, and password are required")
@@ -633,13 +640,13 @@ class FarmiQRequestHandler(http.server.BaseHTTPRequestHandler):
 
             pw_hash = hash_password(password)
             cursor.execute('''
-                INSERT INTO users (full_name, email, phone, password_hash, role, farm_name, location, delivery_address)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (full_name, email, phone, pw_hash, role, farm_name, location, delivery_address))
+                INSERT INTO users (full_name, email, phone, password_hash, role, farm_name, location, delivery_address, upi_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (full_name, email, phone, pw_hash, role, farm_name, location, delivery_address, upi_id or None))
             new_id = cursor.lastrowid
             conn.commit()
 
-            cursor.execute("SELECT id, full_name, email, phone, role, farm_name, location, delivery_address FROM users WHERE id = ?", (new_id,))
+            cursor.execute("SELECT id, full_name, email, phone, role, farm_name, location, delivery_address, upi_id FROM users WHERE id = ?", (new_id,))
             user_row = dict(cursor.fetchone())
             conn.close()
 
@@ -793,10 +800,10 @@ class FarmiQRequestHandler(http.server.BaseHTTPRequestHandler):
             new_stock = available_stock - order_qty
             cursor.execute("UPDATE products SET quantity = ? WHERE id = ?", (new_stock, product_id))
 
-            # Driver assignment for live tracking
-            driver_name = "Vikram Patil (FarmiQ Express Logistics)"
-            driver_phone = "+91 94231 88910"
-            vehicle_number = "MH-14-AG-4492"
+            # Driver assignment for live tracking (null until dispatched/assigned)
+            driver_name = None
+            driver_phone = None
+            vehicle_number = None
 
             cursor.execute('''
                 INSERT INTO orders (

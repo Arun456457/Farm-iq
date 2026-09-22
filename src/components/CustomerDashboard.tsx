@@ -3,7 +3,7 @@ import {
   Search, Filter, ShoppingBag, MapPin, Leaf, TrendingUp, Clock, Plus, Minus, 
   Truck, CheckCircle, CheckCircle2, AlertCircle, QrCode, CreditCard, Wallet, ArrowRight, ShieldCheck,
   FilePlus, AlertTriangle, Send, MessageSquare, RefreshCw, Calendar, Navigation, Sparkles,
-  FileText, IndianRupee, Check, ExternalLink, Compass, Phone
+  FileText, IndianRupee, Check, ExternalLink, Compass, Phone, Banknote, XCircle
 } from 'lucide-react';
 import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, Invoice } from '../types';
 import { api, setStoredUser } from '../api';
@@ -87,10 +87,17 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   
   // Payment step
   const [paymentStep, setPaymentStep] = useState<'details' | 'payment' | 'receipt'>('details');
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'UPI' | 'CARD' | 'NETBANKING' | 'COD'>('UPI');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'UPI' | 'COD'>('UPI');
   const [upiId, setUpiId] = useState('');
   const [placingOrder, setPlacingOrder] = useState(false);
   const [lastPlacedOrder, setLastPlacedOrder] = useState<Order | null>(null);
+  const [rejectedCodAlertOrder, setRejectedCodAlertOrder] = useState<Order | null>(null);
+  const [agentAssignedPopupOrder, setAgentAssignedPopupOrder] = useState<{
+    order: Order;
+    driver_name: string;
+    driver_phone: string;
+    vehicle_number?: string;
+  } | null>(null);
 
   // Live Tracking Modal
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
@@ -160,6 +167,34 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
       setMyOrders(orders);
       setRequirements(reqs);
       setDisputes(disps);
+
+      // Detect any unacknowledged Cash on Delivery rejection to popup notification
+      const codReject = (orders || []).find((o: Order) =>
+        o.status === 'REJECTED' &&
+        (o.payment_method === 'Cash on Delivery' || o.payment_status === 'REJECTED_NO_PAYMENT') &&
+        !sessionStorage.getItem('dismissed_cod_reject_' + o.id)
+      );
+      if (codReject) {
+        setRejectedCodAlertOrder(codReject);
+      }
+
+      // Detect any unacknowledged Delivery Agent Assignment to show popup notification
+      const newlyAssigned = (orders || []).find((o: Order) =>
+        Boolean(
+          o.delivery_agent_assigned &&
+          o.driver_name &&
+          o.driver_name !== o.farmer_name &&
+          !sessionStorage.getItem(`dismissed_agent_assigned_${o.id}_${o.driver_name}`)
+        )
+      );
+      if (newlyAssigned) {
+        setAgentAssignedPopupOrder({
+          order: newlyAssigned,
+          driver_name: newlyAssigned.driver_name!,
+          driver_phone: newlyAssigned.driver_phone || '+91 98210 00000',
+          vehicle_number: newlyAssigned.vehicle_number
+        });
+      }
 
       // Check if user came via a direct WhatsApp action link (track, pay, invoice)
       if (!hasProcessedUrlParams.current) {
@@ -337,13 +372,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
     }
     setPlacingOrder(true);
     try {
+      const isCodChoice = selectedPaymentMethod === 'COD' || (selectedPaymentMethod as string) === 'Cash on Delivery';
       const res: any = await api.createOrder({
         product_id: selectedProduct.id,
         quantity: orderQuantity,
         delivery_address: deliveryAddress,
         customer_phone: customerPhone.trim(),
         distance_km: deliveryDistanceKm,
-        payment_method: 'UPI',
+        payment_method: isCodChoice ? 'Cash on Delivery' : 'UPI',
       });
 
       const orderData = res && res.order ? res.order : res;
@@ -356,7 +392,8 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
         delivery_address: orderData.delivery_address || deliveryAddress,
         farmer_name: orderData.farmer_name || selectedProduct.farmer_name,
         status: orderData.status || 'ORDERED',
-        payment_status: 'UNPAID',
+        payment_method: isCodChoice ? 'Cash on Delivery' : 'UPI',
+        payment_status: isCodChoice ? 'CASH_ON_DELIVERY_PENDING_APPROVAL' : 'UNPAID',
         farmer_whatsapp_url: orderData.farmer_whatsapp_url || (res && res.farmer_whatsapp_url) || '',
         farmer_whatsapp_msg: orderData.farmer_whatsapp_msg || (res && res.farmer_whatsapp_msg) || '',
       };
@@ -386,6 +423,22 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   const handleOpenUPIModal = (order: Order) => {
     setSelectedPayOrder(order);
     setIsUPIModalOpen(true);
+  };
+
+  const handleConfirmCOD = async (orderId: number) => {
+    try {
+      const res = await api.payOrderCOD(orderId);
+      setMyOrders(prev => prev.map(o => o.id === orderId ? res.order : o));
+      try {
+        const bc = new BroadcastChannel('farmiq_bus');
+        bc.postMessage({ type: 'ORDER_PAID', orderId });
+        bc.close();
+      } catch {}
+      window.dispatchEvent(new CustomEvent('farmiq_state_change', { detail: { type: 'ORDER_PAID', orderId } }));
+      loadData();
+    } catch (err: any) {
+      alert(err.message || 'Failed to select Cash on Delivery');
+    }
   };
 
   const handlePaymentSuccess = (updatedOrder: Order) => {
@@ -685,30 +738,44 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           ) : (
             <div className="space-y-4 text-left">
               {myOrders.map((o) => {
-                const isPaid = o.payment_status === 'PAID' || o.status === 'PAID';
-                const isConfirmed = o.status === 'CONFIRMED' || o.status === 'ACCEPTED' || isPaid || ['PREPARING', 'TRANSIT', 'DELIVERED'].includes(o.status);
+                const isRejected = o.status === 'REJECTED';
+                const isPaid = !isRejected && (o.payment_status === 'PAID' || o.status === 'PAID');
+                const isCOD = !isRejected && (o.payment_method === 'Cash on Delivery' || o.payment_status === 'CASH_ON_DELIVERY');
+                const isPaymentSettled = isPaid || isCOD;
+                const isConfirmed = !isRejected && (o.status === 'CONFIRMED' || o.status === 'ACCEPTED' || isPaid || isCOD || ['PREPARING', 'TRANSIT', 'DELIVERED'].includes(o.status));
 
                 return (
-                <div key={o.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div key={o.id} className={`bg-white rounded-2xl border p-5 shadow-xs flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${
+                  isRejected ? 'border-rose-200 bg-rose-50/20' : 'border-stone-200'
+                }`}>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-stone-900">Order #{o.id}</span>
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        isRejected ? 'bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1 font-black' :
                         o.status === 'DELIVERED' ? 'bg-emerald-600 text-white font-black shadow-xs flex items-center gap-1' :
                         o.status === 'TRANSIT' ? 'bg-blue-100 text-blue-800 animate-pulse' :
                         o.status === 'PREPARING' ? 'bg-amber-100 text-amber-800' :
                         isPaid ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-black' :
+                        isCOD ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold flex items-center gap-1' :
                         o.status === 'CONFIRMED' || o.status === 'ACCEPTED' ? 'bg-teal-100 text-teal-800 border border-teal-300' :
-                        o.status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
                         'bg-amber-100 text-amber-900 animate-pulse border border-amber-300 flex items-center gap-1'
                       }`}>
-                        {o.status === 'DELIVERED' ? (
+                        {isRejected ? (
+                          <>
+                            <XCircle className="w-3 h-3 text-rose-600" /> ORDER REJECTED BY FARMER
+                          </>
+                        ) : o.status === 'DELIVERED' ? (
                           <>
                             <Check className="w-3 h-3 text-emerald-200" /> DELIVERED TO DOORSTEP
                           </>
                         ) : o.status === 'ORDERED' ? (
                           <>
                             <Clock className="w-3 h-3" /> AWAITING FARMER AVAILABILITY
+                          </>
+                        ) : isCOD ? (
+                          <>
+                            <Banknote className="w-3 h-3 text-amber-700" /> CASH ON DELIVERY
                           </>
                         ) : o.status === 'CONFIRMED' ? (
                           'CONFIRMED BY FARMER'
@@ -719,6 +786,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       {isPaid && (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-600 text-white flex items-center gap-1">
                           <Check className="w-3 h-3" /> PAID via UPI
+                        </span>
+                      )}
+                      {isCOD && !isPaid && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-600 text-white flex items-center gap-1">
+                          <Banknote className="w-3 h-3" /> COD Confirmed
                         </span>
                       )}
                       <span className="text-[11px] text-stone-500">
@@ -742,18 +814,36 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       <span>Grand Total: <strong className="text-teal-800 font-bold text-sm">₹{o.grand_total}</strong></span>
                       <span>•</span>
                       <span>Contact: <strong className="text-stone-800 font-semibold">{o.customer_phone || user.phone || 'Saved Phone'}</strong></span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${
-                        isPaid ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-600'
+                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold ${
+                        isRejected ? 'bg-rose-100 text-rose-800 font-bold' :
+                        isPaid ? 'bg-emerald-100 text-emerald-800' :
+                        isCOD ? 'bg-amber-100 text-amber-900 border border-amber-300 font-bold' :
+                        'bg-stone-100 text-stone-600'
                       }`}>
-                        {isPaid ? `✓ Paid via UPI (UTR: ${o.transaction_id || 'VERIFIED'})` : '⏳ Payment Pending'}
+                        {isRejected ? '✕ No Payment Charged' :
+                         isPaid ? `✓ Paid via UPI (UTR: ${o.transaction_id || 'VERIFIED'})` :
+                         isCOD ? `💵 Cash on Delivery (Pay ₹${o.grand_total} at Doorstep)` :
+                         '⏳ Payment / COD Pending'}
                       </span>
                     </div>
+
+                    {isRejected && (
+                      <div className="mt-2 p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-1 text-xs text-rose-900">
+                        <div className="flex items-center gap-1.5 font-bold">
+                          <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>Order could not be accepted by farmer</span>
+                        </div>
+                        <p className="text-rose-700 text-[11px] leading-relaxed">
+                          {o.rejection_reason || 'Produce is currently unavailable. No payment was charged to your account.'}
+                        </p>
+                      </div>
+                    )}
 
                     {o.status === 'ORDERED' && (
                       <div className="mt-2 space-y-1.5">
                         <p className="text-[11px] text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200 inline-flex items-center gap-1.5 leading-relaxed">
                           <Clock className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                          <span>Farmer <strong>{o.farmer_name}</strong> has received your order and is verifying crop availability. Your invoice & UPI payment button will unlock immediately upon farmer confirmation.</span>
+                          <span>Farmer <strong>{o.farmer_name}</strong> has received your order and is verifying crop availability. Payment & COD options will unlock immediately upon farmer confirmation.</span>
                         </p>
                         {o.farmer_whatsapp_url && (
                           <div className="pt-0.5">
@@ -777,7 +867,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                         <div className="flex items-center justify-between flex-wrap gap-2">
                           <div className="flex items-center gap-1.5 text-emerald-950 font-bold">
                             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Farmer Accepted Your Order! 3 Options Ready:</span>
+                            <span>Farmer Accepted Your Order! Ready for Fulfillment:</span>
                           </div>
                           {o.customer_whatsapp_url && (
                             <a
@@ -804,19 +894,35 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           </button>
 
                           {/* Option 2: Pay via UPI */}
-                          {!isPaid ? (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenUPIModal(o)}
-                              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs animate-pulse cursor-pointer active:scale-95"
-                            >
-                              <IndianRupee className="w-3.5 h-3.5" />
-                              <span>💳 Pay via UPI</span>
-                            </button>
-                          ) : (
+                          {!isPaymentSettled ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenUPIModal(o)}
+                                className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs animate-pulse cursor-pointer active:scale-95"
+                              >
+                                <IndianRupee className="w-3.5 h-3.5" />
+                                <span>💳 Pay via UPI</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmCOD(o.id)}
+                                className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+                              >
+                                <Banknote className="w-3.5 h-3.5" />
+                                <span>💵 Cash on Delivery</span>
+                              </button>
+                            </>
+                          ) : isPaid ? (
                             <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1">
                               <Check className="w-3.5 h-3.5 text-emerald-600" />
                               <span>Paid via UPI</span>
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1">
+                              <Banknote className="w-3.5 h-3.5 text-amber-700" />
+                              <span>Cash on Delivery Selected</span>
                             </span>
                           )}
 
@@ -849,38 +955,50 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     )}
 
                     {/* Pay Now UPI button (Available when confirmed but unpaid) */}
-                    {isConfirmed && !isPaid && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenUPIModal(o)}
-                        className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition cursor-pointer animate-pulse"
-                      >
-                        <IndianRupee className="w-4 h-4" />
-                        <span>Pay Now (UPI)</span>
-                      </button>
+                    {isConfirmed && !isPaymentSettled && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenUPIModal(o)}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 flex items-center gap-1.5 transition cursor-pointer animate-pulse"
+                        >
+                          <IndianRupee className="w-4 h-4" />
+                          <span>Pay via UPI</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmCOD(o.id)}
+                          className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs shadow-md shadow-amber-600/20 flex items-center gap-1.5 transition cursor-pointer"
+                        >
+                          <Banknote className="w-4 h-4" />
+                          <span>Cash on Delivery</span>
+                        </button>
+                      </div>
                     )}
 
                     {/* Live Tracking Button */}
-                    <button
-                      onClick={() => setTrackingOrder(o)}
-                      className={`px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer ${
-                        o.status === 'DELIVERED'
-                          ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
-                          : 'bg-teal-700 hover:bg-teal-800 text-white'
-                      }`}
-                    >
-                      {o.status === 'DELIVERED' ? (
-                        <>
-                          <CheckCircle2 className="w-4 h-4 text-emerald-300" />
-                          <span>Track Delivery (Delivered ✓)</span>
-                        </>
-                      ) : (
-                        <>
-                          <Truck className="w-4 h-4" />
-                          <span>{t.liveTracking}</span>
-                        </>
-                      )}
-                    </button>
+                    {!isRejected && (
+                      <button
+                        onClick={() => setTrackingOrder(o)}
+                        className={`px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs flex items-center gap-1.5 transition cursor-pointer ${
+                          o.status === 'DELIVERED'
+                            ? 'bg-emerald-700 hover:bg-emerald-800 text-white'
+                            : 'bg-teal-700 hover:bg-teal-800 text-white'
+                        }`}
+                      >
+                        {o.status === 'DELIVERED' ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                            <span>Track Delivery (Delivered ✓)</span>
+                          </>
+                        ) : (
+                          <>
+                            <Truck className="w-4 h-4" />
+                            <span>{t.liveTracking}</span>
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -1493,6 +1611,56 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                   </div>
                 </div>
 
+                {/* Choose Payment Method: UPI vs Cash on Delivery */}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-stone-700">
+                    Payment Method *
+                  </label>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div
+                      onClick={() => setSelectedPaymentMethod('UPI')}
+                      className={`p-3 rounded-xl border-2 cursor-pointer transition flex flex-col justify-between ${
+                        selectedPaymentMethod === 'UPI'
+                          ? 'border-teal-600 bg-teal-50/70 text-teal-950 font-bold shadow-xs'
+                          : 'border-stone-200 bg-stone-50 hover:bg-white text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold flex items-center gap-1.5">
+                          📱 Online / UPI
+                        </span>
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${selectedPaymentMethod === 'UPI' ? 'border-teal-700 bg-teal-700' : 'border-stone-300'}`}>
+                          {selectedPaymentMethod === 'UPI' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-stone-500 font-normal">
+                        Pay securely via UPI once farmer confirms harvest availability.
+                      </p>
+                    </div>
+
+                    <div
+                      onClick={() => setSelectedPaymentMethod('COD')}
+                      className={`p-3 rounded-xl border-2 cursor-pointer transition flex flex-col justify-between ${
+                        selectedPaymentMethod === 'COD'
+                          ? 'border-emerald-600 bg-emerald-50/70 text-emerald-950 font-bold shadow-xs'
+                          : 'border-stone-200 bg-stone-50 hover:bg-white text-stone-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-bold flex items-center gap-1.5">
+                          💵 Cash on Delivery
+                        </span>
+                        <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${selectedPaymentMethod === 'COD' ? 'border-emerald-700 bg-emerald-700' : 'border-stone-300'}`}>
+                          {selectedPaymentMethod === 'COD' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-stone-500 font-normal">
+                        Farmer receives a COD accept/reject prompt; pay cash at delivery.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Price Breakdown */}
                 <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-200/80 space-y-2 text-xs">
                   <div className="flex justify-between text-stone-700">
@@ -1509,13 +1677,19 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Zero Upfront Payment Trust Card */}
-                <div className="p-3.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                {/* Payment Guarantee Card */}
+                <div className={`p-3.5 rounded-xl text-xs flex items-start gap-2.5 ${selectedPaymentMethod === 'COD' ? 'bg-emerald-50 border border-emerald-200 text-emerald-900' : 'bg-amber-50 border border-amber-200/90 text-amber-900'}`}>
+                  <Clock className={`w-4 h-4 shrink-0 mt-0.5 ${selectedPaymentMethod === 'COD' ? 'text-emerald-700' : 'text-amber-700'}`} />
                   <div className="space-y-0.5 leading-relaxed">
-                    <span className="font-bold block text-amber-950">Zero Upfront Payment:</span>
-                    <p className="text-[11px] text-amber-800">
-                      When you click <strong>Confirm Order</strong>, your request is sent directly to farmer <strong>{selectedProduct.farmer_name}</strong> to verify fresh crop availability. You will only pay via UPI after the farmer confirms availability!
+                    <span className="font-bold block">
+                      {selectedPaymentMethod === 'COD' ? 'Cash on Delivery Verification:' : 'Zero Upfront Payment Protection:'}
+                    </span>
+                    <p className="text-[11px]">
+                      {selectedPaymentMethod === 'COD' ? (
+                        <>When you place this order, farmer <strong>{selectedProduct.farmer_name}</strong> will receive an instant popup to accept your COD request. If accepted, the harvest will be prepared immediately and you will pay in cash upon doorstep arrival. If rejected, no payment is deducted.</>
+                      ) : (
+                        <>When you click <strong>Confirm Order</strong>, your request is sent directly to farmer <strong>{selectedProduct.farmer_name}</strong>. You will only pay via UPI after the farmer confirms crop availability. Once transaction is complete, preparation begins!</>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -1591,7 +1765,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       <span className="text-[11px] font-bold text-emerald-900 uppercase tracking-wider block">
                         Order Total (Delivery Included)
                       </span>
-                      <span className="text-[10px] text-emerald-700">UPI Payment Due on Confirmation</span>
+                      <span className="text-[10px] text-emerald-700">
+                        {lastPlacedOrder?.payment_method === 'Cash on Delivery' || selectedPaymentMethod === 'COD'
+                          ? '💵 Pay in Cash upon doorstep delivery'
+                          : 'UPI Payment Due on Confirmation'}
+                      </span>
                     </div>
                     <span className="text-xl font-extrabold text-emerald-800">
                       ₹{lastPlacedOrder?.grand_total || grandTotal}
@@ -1706,6 +1884,132 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
           setUserLiveCoords(coords);
         }}
       />
+
+      {/* COD REJECTION POPUP NOTIFICATION */}
+      {rejectedCodAlertOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-red-200 text-center space-y-4 animate-scaleUp">
+            <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto ring-8 ring-red-50">
+              <XCircle className="w-9 h-9" />
+            </div>
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 uppercase tracking-wide">
+                Cash on Delivery Rejected
+              </span>
+              <h3 className="text-lg font-bold text-stone-900 mt-2">
+                Order #{rejectedCodAlertOrder.id} Not Accepted
+              </h3>
+              <p className="text-sm text-stone-600 mt-1">
+                Farmer <strong>{rejectedCodAlertOrder.farmer_name || 'The Farmer'}</strong> could not accept your Cash on Delivery request for <strong>{rejectedCodAlertOrder.product_name}</strong> ({rejectedCodAlertOrder.quantity} {rejectedCodAlertOrder.unit || 'kg'}).
+              </p>
+            </div>
+
+            <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-left space-y-1">
+              <div className="flex items-center gap-2 text-emerald-900 font-bold text-xs">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                <span>Zero Deduction Guarantee</span>
+              </div>
+              <p className="text-xs text-emerald-800">
+                No payment was deducted from your account. You can choose another farmer or place an order using direct UPI.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                sessionStorage.setItem('dismissed_cod_reject_' + rejectedCodAlertOrder.id, 'true');
+                setRejectedCodAlertOrder(null);
+              }}
+              className="w-full py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-sm shadow-md transition cursor-pointer"
+            >
+              Understood / Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DELIVERY AGENT ASSIGNED POPUP NOTIFICATION */}
+      {agentAssignedPopupOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-blue-200 text-center space-y-4 animate-scaleUp">
+            <div className="w-16 h-16 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mx-auto ring-8 ring-blue-50">
+              <Truck className="w-8 h-8" />
+            </div>
+            <div>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 uppercase tracking-wide">
+                🚚 Delivery Agent Assigned!
+              </span>
+              <h3 className="text-lg font-bold text-stone-900 mt-2">
+                Order #{agentAssignedPopupOrder.order.id} is On Its Way
+              </h3>
+              <p className="text-sm text-stone-600 mt-1">
+                Farmer <strong>{agentAssignedPopupOrder.order.farmer_name || 'The Farmer'}</strong> has assigned a dedicated delivery agent to deliver your fresh <strong>{agentAssignedPopupOrder.order.product_name}</strong> directly to your doorstep.
+              </p>
+            </div>
+
+            {/* Delivery Agent Profile Card */}
+            <div className="p-4 bg-stone-50 border border-stone-200 rounded-xl text-left space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 font-medium">Delivery Agent:</span>
+                <span className="text-sm font-bold text-stone-900">{agentAssignedPopupOrder.driver_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500 font-medium">Contact Phone:</span>
+                <span className="text-xs font-bold text-emerald-800">{agentAssignedPopupOrder.driver_phone}</span>
+              </div>
+              {agentAssignedPopupOrder.vehicle_number && (
+                <div className="flex items-center justify-between">
+                  <span className="text-stone-500 font-medium">Vehicle Number:</span>
+                  <span className="text-xs font-mono font-bold text-stone-700 bg-stone-200/70 px-2 py-0.5 rounded">
+                    {agentAssignedPopupOrder.vehicle_number}
+                  </span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-stone-200 flex items-center justify-between gap-2">
+                <a
+                  href={`tel:${agentAssignedPopupOrder.driver_phone}`}
+                  className="flex-1 py-1.5 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs rounded-lg border border-emerald-200 flex items-center justify-center gap-1.5 transition"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Call Agent</span>
+                </a>
+                <a
+                  href={`https://api.whatsapp.com/send?phone=${agentAssignedPopupOrder.driver_phone.replace(/\D/g, '')}&text=${encodeURIComponent(`Hello, regarding FarmiQ Order #${agentAssignedPopupOrder.order.id}...`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-1.5 px-2.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg border border-teal-200 flex items-center justify-center gap-1.5 transition"
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  sessionStorage.setItem(`dismissed_agent_assigned_${agentAssignedPopupOrder.order.id}_${agentAssignedPopupOrder.driver_name}`, 'true');
+                  const targetOrd = agentAssignedPopupOrder.order;
+                  setAgentAssignedPopupOrder(null);
+                  setTrackingOrder(targetOrd);
+                }}
+                className="w-full sm:flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Navigation className="w-4 h-4" />
+                <span>📍 Live Track Dispatch</span>
+              </button>
+              <button
+                onClick={() => {
+                  sessionStorage.setItem(`dismissed_agent_assigned_${agentAssignedPopupOrder.order.id}_${agentAssignedPopupOrder.driver_name}`, 'true');
+                  setAgentAssignedPopupOrder(null);
+                }}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-stone-300 bg-stone-50 hover:bg-stone-100 text-stone-700 font-bold text-xs transition cursor-pointer"
+              >
+                Understood / Got It
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

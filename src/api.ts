@@ -185,6 +185,25 @@ export const api = {
   acceptContract: (id: string) => request<DigitalContract>(`/contracts/${id}/accept`, {
     method: 'POST'
   }),
+  depositContractEscrow: (id: string, payload?: any) => request<DigitalContract>(`/contracts/${id}/escrow-deposit`, {
+    method: 'POST',
+    body: JSON.stringify(payload || {})
+  }),
+  deliverContract: (id: string) => request<DigitalContract>(`/contracts/${id}/deliver`, {
+    method: 'POST'
+  }),
+  confirmContractDelivery: (id: string) => request<{ message: string; contract: DigitalContract; payment_record: any }>(`/contracts/${id}/confirm-delivery`, {
+    method: 'POST'
+  }),
+  codOrderAction: (orderId: number, accept: boolean, reason?: string) => request<{ message: string; order: Order }>(`/orders/${orderId}/cod-action`, {
+    method: 'POST',
+    body: JSON.stringify({ accept, reason })
+  }),
+  assignDeliveryAgent: (orderId: number, data: { driver_name: string; driver_phone: string; vehicle_number?: string }) => request<{ message: string; order: Order; notification: any }>(`/orders/${orderId}/assign-delivery-agent`, {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  getAdminMonetization: () => request<any>('/admin/monetization'),
 
   // Disputes
   getDisputes: () => request<Dispute[]>('/disputes'),
@@ -274,19 +293,5 @@ export const api = {
   sendChat: (message: string, context?: any, userRole?: string) => request<{ reply: string }>('/chat', {
     method: 'POST',
     body: JSON.stringify({ message, context, userRole })
-  }),
-
-  // Cloud Database Status & Diagnostics
-  getDbStatus: () => request<{
-    provider: 'mongodb' | 'postgres' | 'local';
-    connected: boolean;
-    statusMessage: string;
-    databaseName?: string;
-    lastSyncedAt?: string;
-    lastError?: string | null;
-    counts: Record<string, number>;
-  }>('/system/db-status'),
-  syncDb: () => request<{ success: boolean; message: string; status: any }>('/system/db-sync', {
-    method: 'POST'
   })
 };

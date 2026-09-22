@@ -24,15 +24,27 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
         setTrackingData(data);
       })
       .catch(() => {
-        // Fallback tracking details
+        // Fallback tracking details with standardized Delivery Agent and dynamic contacts
         const isDelivered = order.status === 'DELIVERED';
+        const dynamicPhone = order.driver_phone && !order.driver_phone.includes("98765") && !order.driver_phone.includes("94231")
+          ? order.driver_phone
+          : `+91 ${9820000000 + (Math.abs(order.id * 74129) % 9999999)}`;
+        const dynamicVehicle = order.vehicle_number && !order.vehicle_number.includes("MH-14-AG") && !order.vehicle_number.includes("MH-14-BN")
+          ? order.vehicle_number
+          : `MH-${12 + (Math.abs(order.id) % 35)}-TR-${1000 + (Math.abs(order.id * 179) % 8999)}`;
+
+        const isAssigned = Boolean(order.delivery_agent_assigned && order.driver_name && !order.driver_name.includes("Santosh"));
         setTrackingData({
           order_id: order.id,
           status: order.status,
           delivered_at: isDelivered ? (order.delivered_at || new Date().toISOString()) : null,
-          driver_name: order.driver_name || "Vikram Patil (FarmiQ Logistics)",
-          driver_phone: order.driver_phone || "+91 94231 88910",
-          vehicle_number: order.vehicle_number || "MH-14-AG-4492",
+          farmer_name: order.farmer_name,
+          farmer_phone: order.farmer_phone,
+          farmer_location: order.farmer_location,
+          driver_name: isAssigned ? order.driver_name : (order.farmer_name || "Assigned Farmer"),
+          driver_phone: isAssigned ? (order.driver_phone || dynamicPhone) : (order.farmer_phone || dynamicPhone),
+          delivery_agent_assigned: isAssigned,
+          vehicle_number: dynamicVehicle,
           distance_km: order.distance_km || 12,
           eta_minutes: isDelivered ? 0 : Math.max(8, Math.round((order.distance_km || 12) * 2.2)),
           current_location: isDelivered ? "Delivered at Destination" : "Near Tollway Junction, Farm-to-City Expressway",
@@ -227,29 +239,70 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
             </div>
           )}
 
-          {/* Logistics & Driver Details */}
+          {/* Logistics & Dispatch Details */}
           <div className="p-3.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between text-xs">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
-                <User className="w-4 h-4" />
+                {trackingData?.driver_name ? <User className="w-4 h-4" /> : <Truck className="w-4 h-4 text-emerald-700" />}
               </div>
               <div>
-                <p className="font-bold text-stone-900">{trackingData?.driver_name || "Vikram Patil (FarmiQ Fleet)"}</p>
-                <p className="text-[11px] text-stone-500">Vehicle: {trackingData?.vehicle_number || "MH-14-AG-4492"} • Direct Fleet</p>
+                {trackingData?.driver_name ? (
+                  <>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-bold text-stone-900">
+                        {trackingData.driver_name}
+                      </p>
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                        trackingData.delivery_agent_assigned 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        {trackingData.delivery_agent_assigned ? 'Designated Delivery Agent' : 'Farmer Direct Dispatch'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-stone-500 mt-0.5">
+                      {trackingData.vehicle_number ? `Vehicle: ${trackingData.vehicle_number} • ` : ''}
+                      Seller: <strong className="text-stone-700">{trackingData?.farmer_name || order.farmer_name || 'Farmer'}</strong>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-bold text-stone-900">
+                      {isDelivered 
+                        ? "Direct Farm Delivery Completed" 
+                        : currentStatus === 'TRANSIT' 
+                          ? "Direct Farm Logistics Dispatch" 
+                          : "Farm Gate Packaging & Dispatch"}
+                    </p>
+                    <p className="text-[11px] text-stone-500">
+                      Seller: <strong className="text-stone-700">{trackingData?.farmer_name || order.farmer_name || 'Assigned Farmer'}</strong> {order.farmer_location ? `(${order.farmer_location})` : ''}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
             
             {isDelivered ? (
               <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center gap-1">
-                <Check className="w-3 h-3" /> Handed Over
+                <Check className="w-3 h-3" /> Delivered
               </span>
-            ) : (
+            ) : trackingData?.driver_phone ? (
               <a 
-                href={`tel:${trackingData?.driver_phone || "+919423188910"}`}
+                href={`tel:${trackingData.driver_phone}`}
                 className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold flex items-center gap-1.5 hover:bg-emerald-800 transition cursor-pointer text-xs"
               >
-                <Phone className="w-3.5 h-3.5" /> Call Driver
+                <Phone className="w-3.5 h-3.5" /> Call Delivery Agent
               </a>
+            ) : (trackingData?.farmer_phone || order.farmer_phone) ? (
+              <a 
+                href={`tel:${trackingData?.farmer_phone || order.farmer_phone}`}
+                className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold flex items-center gap-1.5 hover:bg-emerald-800 transition cursor-pointer text-xs"
+                title="Direct Farmer Helpline"
+              >
+                <Phone className="w-3.5 h-3.5" /> Call Farmer
+              </a>
+            ) : (
+              <span className="text-[10px] text-stone-400 font-medium">In Transit</span>
             )}
           </div>
 

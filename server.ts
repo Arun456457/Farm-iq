@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
 import { mandiMarkets, initialMandiRates, findNearestMandi, getMandiAreas, haversineDistanceKm, resolveMandiByLocation, getLocalMandiRateForCrop } from "./src/data/mandiDatabase.ts";
-import { cloudDb, DBState } from "./cloudDb.ts";
 
 dotenv.config();
 
@@ -17,6 +16,22 @@ const DATA_FILE = path.join(projectRoot, "data", "app_state.json");
 const USERS_FILE = path.join(projectRoot, "users.json");
 const DATA_USERS_FILE = path.join(projectRoot, "data", "users.json");
 fs.mkdirSync(path.join(projectRoot, "data"), { recursive: true });
+
+interface DBState {
+  users: any[];
+  products: any[];
+  orders: any[];
+  storage_bookings: any[];
+  contracts: any[];
+  disputes: any[];
+  requirements: any[];
+  lots: any[];
+  verified_buyers: any[];
+  invoices: any[];
+  notifications: any[];
+  payments: any[];
+  fpo_collectives: any[];
+}
 
 const defaultState: DBState = {
   users: [
@@ -212,7 +227,8 @@ function syncUsersFile(users: any[]) {
 
 function saveState(state: DBState) {
   try {
-    cloudDb.save(state);
+    fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf-8");
+    syncUsersFile(state.users);
   } catch (err) {
     console.error("Error saving state file:", err);
   }
@@ -421,20 +437,10 @@ function getAppBaseUrl(req?: express.Request): string {
       return `${proto}://${forwardedHost}`.replace(/\/+$/, '');
     }
   }
-  return process.env.APP_URL || 'https://farmiq-z14k.onrender.com';
+  return process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || 'https://farmiq-z14k.onrender.com';
 }
 
 async function startServer() {
-  // Connect to Cloud Database (MongoDB Atlas / PostgreSQL) or fallback to local
-  try {
-    const cloudLoaded = await cloudDb.init(db);
-    if (cloudLoaded) {
-      db = cloudLoaded;
-    }
-  } catch (err: any) {
-    console.error("[Server] Cloud DB initialization warning:", err.message);
-  }
-
   const app = express();
   app.use(express.json({ limit: "25mb" }));
 
@@ -473,20 +479,6 @@ async function startServer() {
   };
 
   // --- REST API ENDPOINTS ---
-
-  // CLOUD DATABASE & SYSTEM DIAGNOSTICS
-  app.get("/api/system/db-status", (req, res) => {
-    res.json(cloudDb.getStatus(db));
-  });
-
-  app.post("/api/system/db-sync", async (req, res) => {
-    try {
-      await cloudDb.flushCloudSave();
-      res.json({ success: true, message: "Synchronized with cloud database", status: cloudDb.getStatus(db) });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
 
   // AUTH
   app.post("/api/auth/register", (req, res) => {
@@ -527,7 +519,7 @@ async function startServer() {
       pincode: pincode ? String(pincode).trim() : null,
       latitude: latitude ? Number(latitude) : null,
       longitude: longitude ? Number(longitude) : null,
-      upi_id: role === "farmer" ? (upi_id || "9133144324@ybl") : null,
+      upi_id: role === "farmer" ? (upi_id ? String(upi_id).trim() : null) : null,
       upi_name: role === "farmer" ? full_name : null,
       company_name: company_name || (isBuyer ? full_name : null),
       buyer_type: buyer_type || (isBuyer ? "Wholesale Institutional" : null),
@@ -1150,14 +1142,20 @@ async function startServer() {
   app.delete("/api/products/:id", (req, res) => {
     const user = getUserFromToken(req);
     const prodId = Number(req.params.id);
-    const idx = db.products.findIndex(p => p.id === prodId);
+    const idx = db.products.findIndex(p => Number(p.id) === prodId);
     if (idx !== -1) {
       const product = db.products[idx];
-      // Allow farmer who owns it, or admin
-      if (user && (user.role === "admin" || product.farmer_id === user.id)) {
+      // Allow farmer who owns it, or admin, or matching farmer name/id
+      const isOwner = user && (
+        user.role === "admin" ||
+        Number(product.farmer_id) === Number(user.id) ||
+        (product.farmer_name && user.full_name && String(product.farmer_name).toLowerCase().trim() === String(user.full_name).toLowerCase().trim())
+      );
+      if (isOwner) {
         db.products.splice(idx, 1);
         saveState(db);
-        return res.json({ message: "Product removed" });
+        broadcastEvent("PRODUCT_DELETED", { id: prodId });
+        return res.json({ success: true, message: "Product permanently removed from listing", id: prodId });
       }
       return res.status(403).json({ error: "You can only delete your own listings" });
     }
@@ -1323,12 +1321,24 @@ async function startServer() {
       { title: "Delivered to Customer Doorstep", time: isDelivered ? deliveredTime : "Estimated", completed: isDelivered }
     ];
 
+    const isAssigned = Boolean(order.delivery_agent_assigned && order.driver_name && !order.driver_name.includes("Santosh"));
+    const activeDriverName = isAssigned
+      ? order.driver_name
+      : (order.farmer_name || "Assigned Farmer");
+    const activeDriverPhone = isAssigned
+      ? order.driver_phone
+      : (order.farmer_phone || "+91 98220 54321");
+
     res.json({
       order_id: order.id,
       status: order.status,
-      driver_name: order.driver_name || "Santosh Yadav",
-      driver_phone: order.driver_phone || "+91 98765 43210",
-      vehicle_number: order.vehicle_number || "MH-14-BN-4321",
+      driver_name: activeDriverName,
+      driver_phone: activeDriverPhone,
+      delivery_agent_assigned: Boolean(order.delivery_agent_assigned),
+      is_self_dispatch: !isAssigned,
+      farmer_name: order.farmer_name,
+      farmer_phone: order.farmer_phone,
+      vehicle_number: isAssigned ? (order.vehicle_number || "MH-14-BN-4321") : (order.vehicle_number || "Farm Direct Transit"),
       current_lat: order.tracking_lat || 18.5204,
       current_lng: order.tracking_lng || 73.8567,
       eta_minutes: isDelivered ? 0 : (order.status === "TRANSIT" ? Math.max(5, Math.round((order.distance_km || 10) * 1.5)) : Math.max(10, Math.round((order.distance_km || 10) * 2))),
@@ -1366,10 +1376,10 @@ async function startServer() {
       // Farmer details
       farmer_id: order.farmer_id,
       farmer_name: order.farmer_name,
-      farmer_phone: farmerUser?.phone || order.farmer_phone || "+91 91331 44324",
+      farmer_phone: farmerUser?.phone || order.farmer_phone || "+91 98220 54321",
       farmer_email: farmerUser?.email || "farmer@farmiq.in",
       farmer_address: farmerUser?.location || order.farmer_location || "Farmer Registered Location",
-      farmer_upi_id: farmerUser?.upi_id || order.farmer_upi_id || "farmer@ybl",
+      farmer_upi_id: farmerUser?.upi_id || order.farmer_upi_id || "",
       // Customer details
       customer_id: order.customer_id,
       customer_name: order.customer_name,
@@ -1393,6 +1403,8 @@ async function startServer() {
       taxes: 0, // Agricultural produce is GST exempt under Section 11 of CGST Act
       discounts: 0,
       final_amount: order.grand_total,
+      farmer_payout_amount: order.grand_total,
+      farmer_payout_note: `100% of Produce Value (₹${order.product_total}) + Delivery Charges (₹${order.delivery_charge}) credited directly to Farmer Account`,
       order_status: order.payment_status === "PAID" ? "Paid" : "Confirmed",
       payment_status: order.payment_status || "UNPAID",
       transaction_id: order.transaction_id || undefined,
@@ -1445,8 +1457,10 @@ async function startServer() {
       cleanFarmerPhone = '91' + cleanFarmerPhone;
     }
 
+    const nextOrderId = db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101;
+
     const newOrder = {
-      id: db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101,
+      id: nextOrderId,
       customer_id: user.id,
       customer_name: user.full_name,
       customer_phone: user.phone || customer_phone || "+91 94112 33445",
@@ -1455,7 +1469,7 @@ async function startServer() {
       farmer_name: prod.farmer_name,
       farmer_phone: farmerPhone,
       farmer_location: farmerUser?.location || prod.location || "Lasalgaon, Nashik",
-      farmer_upi_id: farmerUser?.upi_id || "9133144324@ybl",
+      farmer_upi_id: farmerUser?.upi_id || "",
       product_id: prod.id,
       product_name: prod.name,
       quantity: orderQty,
@@ -1466,13 +1480,15 @@ async function startServer() {
       delivery_charge: deliveryCharge,
       grand_total: grandTotal,
       delivery_address: delivery_address || user.delivery_address || user.location,
-      payment_method: payment_method || "UPI",
-      payment_status: "UNPAID",
+      payment_method: (String(payment_method).toLowerCase().includes("cash") || payment_method === "COD") ? "Cash on Delivery" : "UPI",
+      payment_status: (String(payment_method).toLowerCase().includes("cash") || payment_method === "COD") ? "CASH_ON_DELIVERY_PENDING_APPROVAL" : "UNPAID",
       transaction_id: null,
       status: "ORDERED",
-      driver_name: "Santosh Yadav",
-      driver_phone: "+91 98765 43210",
-      vehicle_number: "MH-14-BN-4321",
+      driver_name: prod.farmer_name || farmerUser?.full_name || "Assigned Farmer",
+      driver_phone: farmerPhone,
+      delivery_agent_assigned: false,
+      farmer_payout_amount: grandTotal,
+      vehicle_number: `MH-14-BN-${1000 + (nextOrderId * 89) % 9000}`,
       tracking_lat: 18.5204,
       tracking_lng: 73.8567,
       farmer_whatsapp_msg: "",
@@ -1482,14 +1498,16 @@ async function startServer() {
       created_at: new Date().toISOString()
     };
 
+    const isCodOrder = newOrder.payment_method === "Cash on Delivery";
     const appUrl = getAppBaseUrl(req);
     const farmerWhatsAppMsg =
-      `🌾 *FarmiQ Alert: You Received a New Order!*\n\n` +
+      `🌾 *FarmiQ Alert: You Received a New Order!* (${isCodOrder ? 'Cash on Delivery' : 'Online / UPI'})\n\n` +
       `Hello Farmer *${prod.farmer_name}*, a customer has placed a harvest order with you on FarmiQ!\n\n` +
       `📦 *Order ID:* #${newOrder.id}\n` +
       `👤 *Customer:* ${user.full_name} (${user.phone || 'Phone verified'})\n` +
       `🥬 *Produce:* ${orderQty} ${prod.unit} × ${prod.name}\n` +
-      `💰 *Total Amount:* ₹${grandTotal} (Produce: ₹${productTotal} + Delivery: ₹${deliveryCharge})\n` +
+      `💰 *Total Farmer Payout:* ₹${grandTotal} (Produce: ₹${productTotal} + Delivery Fee: ₹${deliveryCharge} sent directly to you)\n` +
+      `💳 *Payment Mode:* ${isCodOrder ? 'Cash on Delivery (Accept to prepare)' : 'UPI'}\n` +
       `📍 *Delivery Address:* ${newOrder.delivery_address}\n\n` +
       `👉 *Open FarmiQ to Confirm & Accept:*\n` +
       `${appUrl}/?tab=farmer-orders`;
@@ -1504,10 +1522,11 @@ async function startServer() {
     const farmerNotif = {
       id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       recipient_id: prod.farmer_id,
-      type: "NEW_ORDER",
-      title: "🔔 New Order Received!",
-      message: `New order #${newOrder.id} from ${user.full_name} for ${orderQty} ${prod.unit} of ${prod.name}`,
+      type: isCodOrder ? "NEW_COD_ORDER" : "NEW_ORDER",
+      title: isCodOrder ? "💵 New Cash on Delivery (COD) Order!" : "🔔 New Order Received!",
+      message: `${isCodOrder ? '[COD Order] ' : ''}New order #${newOrder.id} from ${user.full_name} for ${orderQty} ${prod.unit} of ${prod.name}. Total Payout: ₹${grandTotal} (Includes ₹${deliveryCharge} delivery fee sent to you)`,
       order_id: newOrder.id,
+      is_cod: isCodOrder,
       customer_name: user.full_name,
       customer_phone: user.phone,
       products_summary: `${orderQty} ${prod.unit} × ${prod.name}`,
@@ -1541,7 +1560,11 @@ async function startServer() {
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
 
-    order.status = "CONFIRMED";
+    const isCod = order.payment_method === "Cash on Delivery";
+    order.status = isCod ? "PREPARING" : "CONFIRMED";
+    if (isCod) {
+      order.payment_status = "CASH_ON_DELIVERY_APPROVED";
+    }
     const invoice = getOrCreateInvoice(order);
 
     const custUser = db.users.find(u => u.id === order.customer_id);
@@ -1661,6 +1684,129 @@ async function startServer() {
     res.json({ message: "Order rejected", order });
   });
 
+  // FARMER ACCEPTS OR REJECTS CASH ON DELIVERY (COD) ORDER
+  app.post("/api/orders/:id/cod-action", (req, res) => {
+    const user = getUserFromToken(req);
+    const orderId = Number(req.params.id);
+    const { accept, reason } = req.body || {};
+    const order = db.orders.find(o => o.id === orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    // Dismiss pending farmer notification
+    if (db.notifications) {
+      const fn = db.notifications.find(n => n.order_id === orderId && (n.type === "NEW_ORDER" || n.type === "NEW_COD_ORDER"));
+      if (fn) {
+        fn.requires_action = false;
+        fn.status = "READ";
+      }
+    }
+
+    if (accept) {
+      order.status = "PREPARING";
+      order.payment_status = "CASH_ON_DELIVERY_APPROVED";
+      const invoice = getOrCreateInvoice(order);
+
+      const customerNotif = {
+        id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        recipient_id: order.customer_id,
+        type: "COD_ORDER_ACCEPTED",
+        title: "🌾 Farmer Accepted Your Cash on Delivery Order!",
+        message: `Farmer ${order.farmer_name} has accepted your Cash on Delivery order #${order.id} for ${order.product_name}. Fresh harvest is now being prepared for dispatch!`,
+        order_id: order.id,
+        order_total: order.grand_total,
+        order_time: new Date().toISOString(),
+        status: "UNREAD",
+        requires_action: false,
+        created_at: new Date().toISOString()
+      };
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift(customerNotif);
+      saveState(db);
+      broadcastEvent("ORDER_UPDATED", { order, invoice, notification: customerNotif });
+      return res.json({ message: "COD Order accepted and moved directly to PREPARING", order, invoice });
+    } else {
+      order.status = "REJECTED";
+      order.payment_status = "REJECTED_NO_PAYMENT";
+      order.rejection_reason = reason || "Farmer could not accommodate Cash on Delivery request";
+
+      // Restore product stock
+      const prod = db.products.find(p => p.id === order.product_id);
+      if (prod) {
+        prod.quantity += order.quantity;
+      }
+
+      const customerNotif = {
+        id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        recipient_id: order.customer_id,
+        type: "COD_ORDER_REJECTED",
+        title: "❌ Cash on Delivery Order Rejected",
+        message: `Your Cash on Delivery order #${order.id} for ${order.product_name} was rejected by the farmer. No payment was deducted.`,
+        order_id: order.id,
+        order_total: order.grand_total,
+        rejection_reason: order.rejection_reason,
+        status: "UNREAD",
+        created_at: new Date().toISOString()
+      };
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift(customerNotif);
+      saveState(db);
+      broadcastEvent("ORDER_REJECTED", { order, notification: customerNotif });
+      return res.json({ message: "COD Order rejected. Customer notified with no payment deducted.", order });
+    }
+  });
+
+  // FARMER ASSIGNS OR UPDATES DELIVERY AGENT
+  app.post("/api/orders/:id/assign-delivery-agent", (req, res) => {
+    const user = getUserFromToken(req);
+    const orderId = Number(req.params.id);
+    const { driver_name, driver_phone, vehicle_number } = req.body || {};
+    const order = db.orders.find(o => o.id === orderId);
+    if (!order) return res.status(404).json({ error: "Order not found" });
+
+    const agentName = String(driver_name || "").trim();
+    const agentPhone = String(driver_phone || "").trim();
+
+    if (!agentName) {
+      return res.status(400).json({ error: "Delivery agent name is required" });
+    }
+
+    order.driver_name = agentName;
+    order.driver_phone = agentPhone || order.driver_phone || "+91 98210 00000";
+    if (vehicle_number && String(vehicle_number).trim()) {
+      order.vehicle_number = String(vehicle_number).trim();
+    }
+    order.delivery_agent_assigned = true;
+    order.agent_assigned_at = new Date().toISOString();
+
+    // Create high-priority real-time popup notification for customer
+    const customerNotif = {
+      id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      recipient_id: order.customer_id,
+      type: "DELIVERY_AGENT_ASSIGNED",
+      title: "🚚 Delivery Agent Assigned to Your Order!",
+      message: `Farmer ${order.farmer_name} has assigned delivery agent ${order.driver_name} (${order.driver_phone}) to deliver your order #${order.id} for ${order.product_name}.`,
+      order_id: order.id,
+      driver_name: order.driver_name,
+      driver_phone: order.driver_phone,
+      vehicle_number: order.vehicle_number || "MH-14-BN-2502",
+      status: "UNREAD",
+      requires_action: false,
+      popup: true,
+      created_at: new Date().toISOString()
+    };
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift(customerNotif);
+
+    saveState(db);
+    broadcastEvent("DELIVERY_AGENT_ASSIGNED", { order, notification: customerNotif });
+
+    res.json({
+      message: "Delivery agent assigned successfully. Customer notified.",
+      order,
+      notification: customerNotif
+    });
+  });
+
   // GET LINKED INVOICE FOR AN ORDER (ACCESSIBLE TO BOTH FARMER & CUSTOMER)
   app.get("/api/orders/:id/invoice", (req, res) => {
     const orderId = Number(req.params.id);
@@ -1699,7 +1845,7 @@ async function startServer() {
       customer_name: order.customer_name,
       farmer_id: order.farmer_id,
       farmer_name: order.farmer_name,
-      farmer_upi_id: farmerUser?.upi_id || order.farmer_upi_id || "9133144324@ybl",
+      farmer_upi_id: farmerUser?.upi_id || order.farmer_upi_id || "",
       amount: order.grand_total,
       currency: "INR",
       payment_method: "UPI",
@@ -1713,9 +1859,9 @@ async function startServer() {
     if (!db.payments) db.payments = [];
     db.payments.push(paymentRecord);
 
-    // Update order status in real time
+    // Update order status in real time to PREPARING now that payment is confirmed
     order.payment_status = "PAID";
-    order.status = "PAID";
+    order.status = "PREPARING";
     order.transaction_id = verifiedTxnId;
     order.paid_at = now;
 
@@ -1784,11 +1930,38 @@ async function startServer() {
   app.put("/api/orders/:id/status", (req, res) => {
     const user = getUserFromToken(req);
     const orderId = Number(req.params.id);
-    const { status } = req.body;
+    const { status, driver_name, driver_phone, vehicle_number } = req.body || {};
     const order = db.orders.find(o => o.id === orderId);
     if (!order) return res.status(404).json({ error: "Order not found" });
 
     order.status = status;
+
+    if (driver_name && String(driver_name).trim()) {
+      order.driver_name = String(driver_name).trim();
+      order.delivery_agent_assigned = true;
+      order.agent_assigned_at = new Date().toISOString();
+      if (driver_phone && String(driver_phone).trim()) order.driver_phone = String(driver_phone).trim();
+      if (vehicle_number && String(vehicle_number).trim()) order.vehicle_number = String(vehicle_number).trim();
+
+      const customerNotif = {
+        id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        recipient_id: order.customer_id,
+        type: "DELIVERY_AGENT_ASSIGNED",
+        title: "🚚 Delivery Agent Assigned to Your Order!",
+        message: `Farmer ${order.farmer_name} has assigned delivery agent ${order.driver_name} (${order.driver_phone}) to deliver your order #${order.id} for ${order.product_name}.`,
+        order_id: order.id,
+        driver_name: order.driver_name,
+        driver_phone: order.driver_phone,
+        vehicle_number: order.vehicle_number || "MH-14-BN-2502",
+        status: "UNREAD",
+        requires_action: false,
+        popup: true,
+        created_at: new Date().toISOString()
+      };
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift(customerNotif);
+      broadcastEvent("DELIVERY_AGENT_ASSIGNED", { order, notification: customerNotif });
+    }
 
     // If marked confirmed via status update, ensure invoice exists
     if (status === "CONFIRMED" || status === "ACCEPTED") {
@@ -1935,29 +2108,43 @@ async function startServer() {
     const user = getUserFromToken(req);
     if (!user) return res.status(401).json({ error: "Login required" });
     const { title, crop_name, required_quantity, unit, offer_price, quality_grade, delivery_location, delivery_deadline, terms } = req.body;
+    
+    const qty = Number(required_quantity) || 10;
+    const price = Number(offer_price) || 30;
+    const escrowAmount = Math.round(qty * price);
+    const adminMonetizationFee = Math.round(escrowAmount * 0.015); // 1.5% platform monetization
+    const netFarmerPayout = escrowAmount - adminMonetizationFee;
+
     const newContract = {
       id: `CON-${Math.floor(100 + Math.random() * 900)}`,
-      title,
+      title: title || `Digital Forward Contract: ${qty} ${unit || 'kg'} ${crop_name}`,
       buyer_id: user.id,
-      buyer_name: user.full_name,
-      buyer_company: user.farm_name || "Institutional Procurement",
-      crop_name,
-      required_quantity: Number(required_quantity),
+      buyer_name: user.company_name || user.full_name,
+      buyer_company: user.company_name || user.full_name || "Institutional Procurement",
+      crop_name: String(crop_name).trim(),
+      required_quantity: qty,
       unit: unit || "kg",
-      offer_price: Number(offer_price),
-      quality_grade,
-      delivery_location,
-      delivery_deadline,
-      terms: terms || "Standard Escrow Protection",
+      offer_price: price,
+      quality_grade: quality_grade || "Grade-A Quality",
+      delivery_location: delivery_location || user.location || "Central Agri Corridor Hub",
+      delivery_deadline: delivery_deadline || new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
+      terms: terms || "100% Escrow Secured: Funds locked until delivery confirmation by Verified Buyer.",
       status: "OPEN",
       assigned_farmer_id: null,
       assigned_farmer_name: null,
+      escrow_funded: true,
+      escrow_amount: escrowAmount,
+      escrow_status: "HELD_IN_ESCROW",
+      admin_monetization_fee: adminMonetizationFee,
+      net_farmer_payout: netFarmerPayout,
+      escrow_transaction_id: `ESC-TXN-${Date.now().toString().slice(-6)}`,
       created_at: new Date().toISOString()
     };
+    if (!db.contracts) db.contracts = [];
     db.contracts.unshift(newContract);
     saveState(db);
     broadcastEvent("CONTRACT_CREATED", { contract: newContract });
-    res.json({ message: "Contract posted successfully", contract: newContract });
+    res.json({ message: "Digital Contract created with 100% Escrow backing", contract: newContract });
   });
 
   app.post("/api/contracts/:id/accept", (req, res) => {
@@ -1972,9 +2159,136 @@ async function startServer() {
     contract.status = "ACCEPTED_IN_ESCROW";
     contract.assigned_farmer_id = user ? user.id : 0;
     contract.assigned_farmer_name = user ? user.full_name : "Registered Farmer";
+    contract.assigned_farmer_phone = user ? user.phone : "+91 98220 00000";
+    contract.assigned_farmer_location = user ? user.location : "Maharashtra";
     saveState(db);
-    broadcastEvent("CONTRACT_UPDATED", { contract });
-    res.json({ message: "Contract successfully accepted and locked in escrow!", contract });
+    broadcastEvent("CONTRACT_ACCEPTED", { contract });
+    res.json({ message: "Contract successfully accepted! Funds remain locked in Escrow.", contract });
+  });
+
+  // VERIFIED BUYER ESCROW DEPOSIT
+  app.post("/api/contracts/:id/escrow-deposit", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    contract.escrow_funded = true;
+    contract.escrow_status = "HELD_IN_ESCROW";
+    contract.escrow_transaction_id = req.body?.transaction_id || `ESC-${Date.now().toString().slice(-6)}`;
+    saveState(db);
+    broadcastEvent("ESCROW_DEPOSITED", { contract });
+    res.json({ message: "Escrow funds locked successfully. Farmer can safely dispatch produce.", contract });
+  });
+
+  // FARMER MARKS PRODUCE DELIVERED
+  app.post("/api/contracts/:id/deliver", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    contract.status = "DELIVERED";
+    saveState(db);
+    broadcastEvent("CONTRACT_DELIVERED", { contract });
+    res.json({ message: "Produce marked as delivered! Awaiting buyer confirmation for Escrow release.", contract });
+  });
+
+  // VERIFIED BUYER CONFIRMS DELIVERY -> AUTO RELEASE ESCROW TO FARMER
+  app.post("/api/contracts/:id/confirm-delivery", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    const totalVal = contract.escrow_amount || Math.round(contract.required_quantity * contract.offer_price);
+    const adminFee = contract.admin_monetization_fee || Math.round(totalVal * 0.015);
+    const payoutToFarmer = totalVal - adminFee;
+    const now = new Date().toISOString();
+    const settleTxnId = `ESC-SETTLE-${Date.now().toString().slice(-6)}`;
+
+    contract.status = "COMPLETED";
+    contract.escrow_status = "RELEASED_TO_FARMER";
+    contract.delivery_confirmed = true;
+    contract.delivery_confirmed_at = now;
+    contract.settlement_transaction_id = settleTxnId;
+
+    // Find assigned farmer user for UPI details
+    const farmerUser = db.users.find(u => u.id === contract.assigned_farmer_id);
+    const farmerUpi = farmerUser?.upi_id || "farmer@upi";
+
+    // Create automatic payment settlement record
+    const paymentRecord = {
+      id: `PAY-ESC-${Date.now()}`,
+      contract_id: contract.id,
+      buyer_id: contract.buyer_id,
+      buyer_name: contract.buyer_name,
+      farmer_id: contract.assigned_farmer_id || 0,
+      farmer_name: contract.assigned_farmer_name || "Registered Farmer",
+      farmer_upi_id: farmerUpi,
+      gross_amount: totalVal,
+      platform_monetization_fee: adminFee,
+      net_farmer_amount: payoutToFarmer,
+      currency: "INR",
+      payment_method: "Escrow Auto-Settlement to Farmer UPI",
+      transaction_id: settleTxnId,
+      payment_status: "SETTLED_TO_FARMER",
+      timestamp: now,
+      verified: true
+    };
+    if (!db.payments) db.payments = [];
+    db.payments.unshift(paymentRecord);
+
+    // Notify farmer of payment release
+    if (contract.assigned_farmer_id) {
+      const farmerNotif = {
+        id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        recipient_id: contract.assigned_farmer_id,
+        type: "ESCROW_PAYMENT_RELEASED",
+        title: "💰 Escrow Payment Released to Your Account!",
+        message: `Verified Buyer "${contract.buyer_name}" has confirmed delivery for contract #${contract.id}. ₹${payoutToFarmer.toLocaleString('en-IN')} has been transferred to your account! UTR: ${settleTxnId}`,
+        contract_id: contract.id,
+        amount: payoutToFarmer,
+        time: now,
+        status: "UNREAD",
+        requires_action: false,
+        created_at: now
+      };
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift(farmerNotif);
+    }
+
+    saveState(db);
+    broadcastEvent("ESCROW_RELEASED", { contract, payment: paymentRecord });
+    res.json({
+      message: `Delivery confirmed! Escrow funds of ₹${payoutToFarmer.toLocaleString('en-IN')} successfully released to farmer ${contract.assigned_farmer_name}. Platform fee: ₹${adminFee}.`,
+      contract,
+      payment_record: paymentRecord
+    });
+  });
+
+  // ADMIN DIGITAL CONTRACTS MONETIZATION METRICS
+  app.get("/api/admin/monetization", (req, res) => {
+    const contracts = db.contracts || [];
+    const completedContracts = contracts.filter(c => c.escrow_status === "RELEASED_TO_FARMER" || c.status === "COMPLETED");
+    const activeEscrowContracts = contracts.filter(c => c.escrow_status === "HELD_IN_ESCROW" || c.status === "ACCEPTED_IN_ESCROW" || c.status === "DELIVERED");
+
+    const totalEscrowVolume = contracts.reduce((sum, c) => sum + (c.escrow_amount || Math.round((c.required_quantity || 0) * (c.offer_price || 0))), 0);
+    const activeHoldingEscrow = activeEscrowContracts.reduce((sum, c) => sum + (c.escrow_amount || Math.round((c.required_quantity || 0) * (c.offer_price || 0))), 0);
+    const totalPlatformMonetizationEarned = completedContracts.reduce((sum, c) => sum + (c.admin_monetization_fee || Math.round((c.escrow_amount || 0) * 0.015)), 0);
+    const pendingMonetizationInEscrow = activeEscrowContracts.reduce((sum, c) => sum + (c.admin_monetization_fee || Math.round((c.escrow_amount || 0) * 0.015)), 0);
+
+    res.json({
+      total_contracts: contracts.length,
+      completed_contracts: completedContracts.length,
+      active_escrow_contracts: activeEscrowContracts.length,
+      total_escrow_volume: totalEscrowVolume,
+      active_holding_escrow: activeHoldingEscrow,
+      total_platform_monetization_earned: totalPlatformMonetizationEarned,
+      pending_monetization_in_escrow: pendingMonetizationInEscrow,
+      monetization_rate_pct: 1.5,
+      recent_escrow_settlements: (db.payments || []).filter(p => String(p.id).includes("ESC"))
+    });
   });
 
   // CUSTOMER REQUIREMENTS (Requested feature!)
@@ -2057,9 +2371,9 @@ async function startServer() {
       payment_status: "CONFIRMED",
       transaction_id: `REQ_ORDER_${reqItem.id}`,
       status: "ACCEPTED",
-      driver_name: "Santosh Yadav",
-      driver_phone: "+91 98765 43210",
-      vehicle_number: "MH-14-BN-4321",
+      driver_name: "Delivery Agent",
+      driver_phone: `+91 ${9821000000 + ((newOrder.id * 71329) % 8999999)}`,
+      vehicle_number: `MH-14-BN-${1000 + (newOrder.id * 89) % 9000}`,
       tracking_lat: 18.5204,
       tracking_lng: 73.8567,
       created_at: new Date().toISOString()
@@ -2545,7 +2859,6 @@ async function startServer() {
     // ────────────────────────────────────────────────────────────────────────────
 
     saveState(db);
-    broadcastEvent("LOT_CREATED", { lot: newLot });
     res.json({ message: "Produce lot successfully created and listed for verified buyers", lot: newLot });
   });
 
@@ -2729,25 +3042,7 @@ async function startServer() {
     lot.linked_order_id = newOrderId;
     lot.fulfillment_status = "ACCEPTED";
 
-    if (!db.notifications) db.notifications = [];
-    const matchNotif = {
-      id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      recipient_id: buyerUserId || 2,
-      type: "ORDER",
-      title: "Lot Matched with FPO",
-      message: `Lot #${lot.id} (${lot.quantity} ${lot.unit} ${lot.crop_name}) matched with ${buyer.company_name}. Order #${newOrderId} created.`,
-      order_id: newOrderId,
-      status: "UNREAD",
-      created_at: new Date().toISOString()
-    };
-    db.notifications.unshift(matchNotif);
-
     saveState(db);
-    broadcastEvent("LOT_MATCHED", { lot, order: newOrder, contract: newContract });
-    broadcastEvent("NEW_ORDER", { order: newOrder, notification: matchNotif });
-    broadcastEvent("LOT_UPDATED", { lot });
-    broadcastEvent("CONTRACT_CREATED", { contract: newContract });
-
     res.json({
       message: `Match confirmed with ${buyer.company_name}! Escrow contract #${newContract.id} activated and Order #${newOrderId} queued for preparation.`,
       contract: newContract,
@@ -2772,16 +3067,9 @@ async function startServer() {
       (user.company_name && b.company_name && b.company_name.toLowerCase() === user.company_name.toLowerCase())
     );
 
-    if (buyerRecord && buyerRecord.status === "REJECTED") {
-      return res.status(403).json({ error: "Your institutional buyer registration was rejected by Admin." });
+    if (buyerRecord && (buyerRecord.status === "REJECTED" || buyerRecord.verified === false)) {
+      return res.status(403).json({ error: "Your institutional buyer registration is not verified by Admin." });
     }
-
-    if (buyerRecord) {
-      buyerRecord.verified = true;
-      buyerRecord.status = "VERIFIED";
-    }
-    user.verified = true;
-    user.status = "VERIFIED";
 
     const companyName = buyerRecord?.company_name || user.company_name || user.full_name;
     const buyerId = buyerRecord ? buyerRecord.id : `BUYER-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -2811,9 +3099,7 @@ async function startServer() {
       quality_grade: `${lot.quality_grade} (Defect < ${lot.defect_pct}%, Moisture ${lot.moisture_pct}%)`,
       delivery_location: buyerLocation,
       delivery_deadline: new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0],
-      terms: req.body?.escrow_model === '20_ADVANCE_80_DELIVERY'
-        ? `20% Escrow Advance released on dispatch; 80% locked until destination weighment approval by ${companyName}.`
-        : `100% Escrow deposit locked by ${companyName}. Payment released within 24h of weighment & quality approval.`,
+      terms: `100% Escrow deposit locked by ${companyName}. Direct farm-gate pickup. Payment released within 24h of weighment receipt.`,
       status: "ACCEPTED_IN_ESCROW",
       assigned_farmer_id: lot.farmer_id || (user ? user.id : 0),
       assigned_farmer_name: lot.farmer_name || (user ? user.full_name : "Registered Farmer"),
@@ -2827,8 +3113,7 @@ async function startServer() {
     const newOrderId = db.orders.length ? Math.max(...db.orders.map(o => o.id)) + 1 : 101;
     const customDist = Number(req.body?.distance_km);
     const estDistance = !isNaN(customDist) && customDist > 0 ? customDist : 45;
-    const logisticsMode = req.body?.logistics_mode || "REEFER_COLD_CHAIN";
-    const deliveryTariff = logisticsMode === 'BUYER_SELF_FLEET' ? 0 : calculateDeliveryFee(estDistance);
+    const deliveryTariff = calculateDeliveryFee(estDistance);
     const produceVal = Math.round(lot.quantity * lot.base_price_per_unit);
 
     const newOrder = {
@@ -2852,17 +3137,13 @@ async function startServer() {
       delivery_charge: deliveryTariff,
       grand_total: produceVal + deliveryTariff,
       delivery_address: buyerLocation,
-      logistics_mode: logisticsMode,
-      escrow_model: req.body?.escrow_model || '100_ESCROW',
-      inspection_protocol: req.body?.inspection_protocol || 'APMC_WEIGHBRIDGE',
-      logistics_notes: req.body?.logistics_notes ? String(req.body.logistics_notes).trim() : undefined,
-      payment_method: req.body?.escrow_model === '20_ADVANCE_80_DELIVERY' ? '20% Advance Escrow + 80% on Unloading' : '100% Escrow Secured',
+      payment_method: "100% Escrow Secured",
       payment_status: "LOCKED_IN_ESCROW",
       transaction_id: `ESC-${Date.now().toString().slice(-6)}`,
       status: "ACCEPTED",
-      driver_name: logisticsMode === 'BUYER_SELF_FLEET' ? "Buyer Self-Arranged Fleet" : "FarmiQ Reefer Agri-Logistics",
+      driver_name: "FarmiQ Agri-Logistics Transport",
       driver_phone: "+91 94231 88910",
-      vehicle_number: logisticsMode === 'BUYER_SELF_FLEET' ? "BUYER-TRUCK" : "MH-15-EG-8821",
+      vehicle_number: "MH-15-EG-8821",
       order_type: "FPO_COMMERCIAL_LOT",
       created_at: new Date().toISOString()
     };
@@ -2875,44 +3156,7 @@ async function startServer() {
     lot.linked_order_id = newOrderId;
     lot.fulfillment_status = "ACCEPTED";
 
-    // Create notifications for Farmer & Buyer
-    if (!db.notifications) db.notifications = [];
-    const fpoNotif = {
-      id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      recipient_id: lot.farmer_id || 0,
-      type: "ORDER",
-      title: "Bulk Lot Procured & Escrow Locked",
-      message: `Institutional Buyer "${companyName}" has procured Lot #${lot.id} (${lot.quantity} ${lot.unit} ${lot.crop_name}). Order #${newOrderId} created with ₹${(produceVal + deliveryTariff).toLocaleString('en-IN')} escrow locked. Ready for packaging.`,
-      order_id: newOrderId,
-      order_total: produceVal + deliveryTariff,
-      status: "UNREAD",
-      requires_action: true,
-      created_at: new Date().toISOString()
-    };
-    db.notifications.unshift(fpoNotif);
-
-    const buyerNotif = {
-      id: `NOTIF-${Date.now() + 1}-${Math.floor(Math.random() * 1000)}`,
-      recipient_id: user.id,
-      type: "ORDER",
-      title: "Procurement Order Confirmed",
-      message: `Your procurement for Lot #${lot.id} (${lot.quantity} ${lot.unit} ${lot.crop_name}) is confirmed under Contract #${newContract.id}. Order #${newOrderId} is routing to "${buyerLocation}".`,
-      order_id: newOrderId,
-      order_total: produceVal + deliveryTariff,
-      status: "UNREAD",
-      requires_action: false,
-      created_at: new Date().toISOString()
-    };
-    db.notifications.unshift(buyerNotif);
-
     saveState(db);
-
-    // Broadcast instant real-time events to all clients
-    broadcastEvent("LOT_PROCURED", { lot, order: newOrder, contract: newContract, notification: fpoNotif });
-    broadcastEvent("NEW_ORDER", { order: newOrder, notification: fpoNotif });
-    broadcastEvent("LOT_UPDATED", { lot });
-    broadcastEvent("CONTRACT_CREATED", { contract: newContract });
-
     res.json({
       message: `Lot #${lot.id} successfully procured with 100% Escrow locked! Order #${newOrderId} generated for farmer dispatch.`,
       contract: newContract,
@@ -2921,37 +3165,139 @@ async function startServer() {
     });
   });
 
-  // DISPUTES & GRIEVANCES (Requested feature!)
+  // DISPUTES & GRIEVANCES (Enhanced with Full Contact & Counterparty Intelligence)
   app.get("/api/disputes", (req, res) => {
     const user = getUserFromToken(req);
-    if (!user) return res.json(db.disputes);
-    if (user.role === "admin") return res.json(db.disputes);
-    return res.json(db.disputes.filter(d => d.filed_by_id === user.id));
+    const rawList = db.disputes || [];
+    
+    // Enrich dispute records with live user and order details if missing
+    const enriched = rawList.map(d => {
+      const order = d.order_id ? (db.orders || []).find(o => o.id === d.order_id) : null;
+      const filerUser = (db.users || []).find(u => u.id === d.filed_by_id);
+      
+      let farmerPhone = d.farmer_phone;
+      let farmerName = d.farmer_name;
+      let farmerLocation = d.farmer_location;
+      let custPhone = d.customer_phone;
+      let custName = d.customer_name;
+      let custLocation = d.delivery_address || d.customer_address;
+
+      if (order) {
+        const orderFarmer = (db.users || []).find(u => u.id === order.farmer_id);
+        const orderCust = (db.users || []).find(u => u.id === order.customer_id);
+        farmerName = farmerName || order.farmer_name;
+        farmerPhone = farmerPhone || orderFarmer?.phone || order.farmer_phone;
+        farmerLocation = farmerLocation || orderFarmer?.location || order.farmer_location;
+        custName = custName || order.customer_name;
+        custPhone = custPhone || orderCust?.phone || order.customer_phone;
+        custLocation = custLocation || orderCust?.delivery_address || order.delivery_address;
+      }
+
+      return {
+        ...d,
+        filed_by_phone: d.filed_by_phone || filerUser?.phone || "Phone on record",
+        filed_by_email: d.filed_by_email || filerUser?.email || "Email on record",
+        filed_by_location: d.filed_by_location || filerUser?.location || filerUser?.delivery_address || "Location on record",
+        reason_category: d.reason_category || "Service & Produce Quality",
+        farmer_name: farmerName,
+        farmer_phone: farmerPhone,
+        farmer_location: farmerLocation,
+        customer_name: custName,
+        customer_phone: custPhone,
+        customer_address: custLocation,
+        product_name: d.product_name || order?.product_name,
+        order_total: d.order_total || order?.grand_total,
+        order_status: d.order_status || order?.status,
+        payment_method: d.payment_method || order?.payment_method,
+        payment_status: d.payment_status || order?.payment_status
+      };
+    });
+
+    if (!user) return res.json(enriched);
+    if (user.role === "admin") return res.json(enriched);
+    return res.json(enriched.filter(d => d.filed_by_id === user.id));
   });
 
   app.post("/api/disputes", (req, res) => {
     const user = getUserFromToken(req);
     if (!user) return res.status(401).json({ error: "Login required to file a dispute" });
-    const { order_id, subject, description } = req.body;
+    const { order_id, subject, description, reason_category } = req.body;
     if (!subject || !description) {
       return res.status(400).json({ error: "Subject and description required" });
     }
+
+    const orderNum = order_id ? Number(order_id) : null;
+    const linkedOrder = orderNum ? (db.orders || []).find(o => o.id === orderNum) : null;
+
+    let farmerInfo: any = {};
+    let customerInfo: any = {};
+
+    if (linkedOrder) {
+      const farmerUser = (db.users || []).find(u => u.id === linkedOrder.farmer_id);
+      const customerUser = (db.users || []).find(u => u.id === linkedOrder.customer_id);
+
+      farmerInfo = {
+        farmer_id: linkedOrder.farmer_id,
+        farmer_name: linkedOrder.farmer_name,
+        farmer_phone: farmerUser?.phone || linkedOrder.farmer_phone || "+91 98220 54321",
+        farmer_location: farmerUser?.location || linkedOrder.farmer_location || "Maharashtra"
+      };
+
+      customerInfo = {
+        customer_id: linkedOrder.customer_id,
+        customer_name: linkedOrder.customer_name,
+        customer_phone: customerUser?.phone || linkedOrder.customer_phone || user.phone || "+91 98000 00000",
+        customer_email: customerUser?.email || linkedOrder.customer_email || user.email || "customer@farmiq.in",
+        customer_address: customerUser?.delivery_address || linkedOrder.delivery_address || user.delivery_address || "Customer Delivery Address"
+      };
+    } else {
+      if (user.role === 'farmer') {
+        farmerInfo = {
+          farmer_id: user.id,
+          farmer_name: user.full_name,
+          farmer_phone: user.phone,
+          farmer_location: user.location
+        };
+      } else {
+        customerInfo = {
+          customer_id: user.id,
+          customer_name: user.full_name,
+          customer_phone: user.phone,
+          customer_email: user.email,
+          customer_address: user.delivery_address || user.location
+        };
+      }
+    }
+
     const newDispute = {
       id: `DISP-${Math.floor(100 + Math.random() * 900)}`,
-      order_id: order_id ? Number(order_id) : null,
+      order_id: orderNum,
       filed_by_id: user.id,
       filed_by_name: user.full_name,
       filed_by_role: user.role,
-      subject,
-      description,
+      filed_by_phone: user.phone || "+91 98000 00000",
+      filed_by_email: user.email || "",
+      filed_by_location: user.location || user.delivery_address || "Maharashtra",
+      reason_category: reason_category || "Produce Quality & Delivery Issue",
+      subject: String(subject).trim(),
+      description: String(description).trim(),
       status: "OPEN",
       resolution: null,
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      ...farmerInfo,
+      ...customerInfo,
+      product_name: linkedOrder ? linkedOrder.product_name : undefined,
+      order_total: linkedOrder ? linkedOrder.grand_total : undefined,
+      order_status: linkedOrder ? linkedOrder.status : undefined,
+      payment_method: linkedOrder ? linkedOrder.payment_method : undefined,
+      payment_status: linkedOrder ? linkedOrder.payment_status : undefined,
+      delivery_address: linkedOrder ? linkedOrder.delivery_address : undefined
     };
+    if (!db.disputes) db.disputes = [];
     db.disputes.unshift(newDispute);
     saveState(db);
-    broadcastEvent("DISPUTE_CREATED", { dispute: newDispute });
-    res.json({ message: "Dispute submitted to Admin Escrow desk", dispute: newDispute });
+    broadcastEvent("DISPUTE_FILED", { dispute: newDispute });
+    res.json({ message: "Grievance submitted to Admin Escrow desk", dispute: newDispute });
   });
 
   app.put("/api/disputes/:id/resolve", (req, res) => {
@@ -2961,7 +3307,7 @@ async function startServer() {
     }
     const dispId = req.params.id;
     const { resolution } = req.body;
-    const disp = db.disputes.find(d => d.id === dispId);
+    const disp = (db.disputes || []).find(d => d.id === dispId);
     if (!disp) return res.status(404).json({ error: "Dispute not found" });
 
     disp.status = "RESOLVED";
@@ -3318,13 +3664,11 @@ Answer warmly and concisely in simple terms. Provide actionable farming and mark
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    const dbStatus = cloudDb.getStatus(db);
+  app.listen(PORT, () => {
     console.log(`\n  ======================================================`);
     console.log(`  🌾 FarmiQ Platform is running!`);
     console.log(`  ➜ Local URL:   http://localhost:${PORT}/`);
     console.log(`  ➜ Network URL: http://127.0.0.1:${PORT}/`);
-    console.log(`  ➜ Cloud DB:    ${dbStatus.provider.toUpperCase()} (${dbStatus.statusMessage})`);
     console.log(`  ======================================================`);
     console.log(`  💡 Notice on "Connection is not secure" / "Not Secure":`);
     console.log(`     Make sure to open with "http://" (NOT "https://").`);

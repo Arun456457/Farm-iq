@@ -210,6 +210,9 @@ export interface Order {
   driver_name?: string;
   driver_phone?: string;
   vehicle_number?: string;
+  delivery_agent_assigned?: boolean;
+  agent_assigned_at?: string;
+  farmer_payout_amount?: number;
   image_url?: string;
   farmer_whatsapp_url?: string;
   customer_whatsapp_url?: string;
@@ -286,9 +289,19 @@ export interface DigitalContract {
   delivery_location: string;
   delivery_deadline: string;
   terms?: string;
-  status: 'OPEN' | 'BID_PLACED' | 'ACCEPTED_IN_ESCROW' | 'FULFILLED';
+  status: 'OPEN' | 'BID_PLACED' | 'ACCEPTED_IN_ESCROW' | 'IN_TRANSIT' | 'DELIVERED' | 'FULFILLED' | 'COMPLETED';
   assigned_farmer_id?: number;
   assigned_farmer_name?: string;
+  assigned_farmer_phone?: string;
+  assigned_farmer_location?: string;
+  escrow_funded?: boolean;
+  escrow_amount?: number;
+  escrow_status?: 'HELD_IN_ESCROW' | 'RELEASED_TO_FARMER' | 'REFUNDED_TO_BUYER';
+  admin_monetization_fee?: number;
+  net_farmer_payout?: number;
+  escrow_transaction_id?: string;
+  delivery_confirmed?: boolean;
+  delivery_confirmed_at?: string;
   created_at: string;
 }
 
@@ -298,11 +311,30 @@ export interface Dispute {
   filed_by_id: number;
   filed_by_name: string;
   filed_by_role: string;
+  filed_by_phone?: string;
+  filed_by_email?: string;
+  filed_by_location?: string;
+  reason_category?: string;
   subject: string;
   description: string;
   status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED';
   resolution?: string;
   created_at: string;
+  farmer_id?: number;
+  farmer_name?: string;
+  farmer_phone?: string;
+  farmer_location?: string;
+  customer_id?: number;
+  customer_name?: string;
+  customer_phone?: string;
+  customer_email?: string;
+  customer_address?: string;
+  product_name?: string;
+  order_total?: number;
+  order_status?: string;
+  payment_method?: string;
+  payment_status?: string;
+  delivery_address?: string;
 }
 
 export interface CustomerRequirement {
