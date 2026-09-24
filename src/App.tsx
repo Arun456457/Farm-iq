@@ -42,13 +42,8 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('landing');
   
   useEffect(() => {
-    if (language !== 'en') {
-      const timer = setTimeout(() => {
-        triggerFullPageTranslation(language);
-      }, 350);
-      return () => clearTimeout(timer);
-    }
-  }, [language, currentTab]);
+    triggerFullPageTranslation(language);
+  }, [language]);
   
   // Auth modal
   const [isAuthOpen, setIsAuthOpen] = useState(false);

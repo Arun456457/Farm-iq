@@ -23,9 +23,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Floating badge */}
         <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl sm:rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold mb-6 shadow-xs max-w-full text-center">
           <Sprout className="w-4 h-4 text-emerald-700 shrink-0" />
-          <span>Direct Farmer ↔ Customer Agriculture Hub</span>
+          <span>{t.directHubBadge || "Direct Farmer ↔ Customer Agriculture Hub"}</span>
           <span className="hidden sm:inline w-1.5 h-1.5 rounded-full bg-emerald-600" />
-          <span className="font-semibold text-emerald-800">Low-Cost Direct Transport</span>
+          <span className="font-semibold text-emerald-800">{t.lowCostTransportBadge || "Low-Cost Direct Transport"}</span>
         </div>
 
         {/* Brand Logo Emblem */}
@@ -80,7 +80,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-2xl font-bold text-stone-900">{t.roleFarmer}</h2>
-              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">Sell Produce</span>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">{t.sellProduce || "Sell Produce"}</span>
             </div>
             <p className="text-stone-600 text-sm mb-6 leading-relaxed">
               {t.farmerDesc}
@@ -88,19 +88,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <ul className="space-y-2 mb-8 text-xs text-stone-600">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                Upload produce photo with harvest date & preservation days
+                {t.farmerBullet1 || "Upload produce photo with harvest date & preservation days"}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                Compare your price side-by-side with live APMC Mandi rates
+                {t.farmerBullet2 || "Compare your price side-by-side with live APMC Mandi rates"}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                Receive direct customer orders with instant payment settlement
+                {t.farmerBullet3 || "Receive direct customer orders with instant payment settlement"}
               </li>
             </ul>
             <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 group-hover:text-emerald-900 transition-colors">
-              <span>Enter as Farmer</span>
+              <span>{t.enterAsFarmer || "Enter as Farmer"}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -117,7 +117,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-2xl font-bold text-stone-900">{t.roleCustomer}</h2>
-              <span className="text-xs font-bold text-teal-800 bg-teal-100 px-3 py-1 rounded-full">Buy Fresh</span>
+              <span className="text-xs font-bold text-teal-800 bg-teal-100 px-3 py-1 rounded-full">{t.buyFresh || "Buy Fresh"}</span>
             </div>
             <p className="text-stone-600 text-sm mb-6 leading-relaxed">
               {t.customerDesc}
@@ -125,19 +125,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <ul className="space-y-2 mb-8 text-xs text-stone-600">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                Select any custom quantity (e.g. 1 kg, 5 kg, 20 kg)
+                {t.customerBullet1 || "Select any custom quantity (e.g. 1 kg, 5 kg, 20 kg)"}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                Affordable distance-based direct farm delivery
+                {t.customerBullet2 || "Affordable distance-based direct farm delivery"}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                Live GPS delivery tracking once the farmer accepts your order
+                {t.customerBullet3 || "Live GPS delivery tracking once the farmer accepts your order"}
               </li>
             </ul>
             <div className="flex items-center gap-2 text-sm font-bold text-teal-700 group-hover:text-teal-900 transition-colors">
-              <span>Enter as Customer</span>
+              <span>{t.enterAsCustomer || "Enter as Customer"}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -147,23 +147,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto pt-6 border-t border-stone-200/80">
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <TrendingUp className="w-5 h-5 text-amber-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">Live Mandi Fluctuations</h3>
-            <p className="text-[11px] text-stone-600 mt-1">Real-time modal prices and arrival tonnes across 20+ APMCs.</p>
+            <h3 className="text-xs font-bold text-stone-900">{t.featureFluctuationsTitle || "Live Mandi Fluctuations"}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{t.featureFluctuationsDesc || "Real-time modal prices and arrival tonnes across 20+ APMCs."}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <Truck className="w-5 h-5 text-emerald-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">Direct Farm Logistics</h3>
-            <p className="text-[11px] text-stone-600 mt-1">Fair delivery charges calculated automatically by distance.</p>
+            <h3 className="text-xs font-bold text-stone-900">{t.featureLogisticsTitle || "Direct Farm Logistics"}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{t.featureLogisticsDesc || "Fair delivery charges calculated automatically by distance."}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <ShieldCheck className="w-5 h-5 text-blue-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">Prevent Overselling</h3>
-            <p className="text-[11px] text-stone-600 mt-1">Atomic inventory locking protects farmers and buyers.</p>
+            <h3 className="text-xs font-bold text-stone-900">{t.featureOversellingTitle || "Prevent Overselling"}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{t.featureOversellingDesc || "Atomic inventory locking protects farmers and buyers."}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <Bot className="w-5 h-5 text-purple-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">Kisan Mitra AI Assistant</h3>
-            <p className="text-[11px] text-stone-600 mt-1">Smart advisor for crop diseases, market timing, and shelf life.</p>
+            <h3 className="text-xs font-bold text-stone-900">{t.featureAiTitle || "Kisan Mitra AI Assistant"}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{t.featureAiDesc || "Smart advisor for crop diseases, market timing, and shelf life."}</p>
           </div>
         </div>
       </section>
@@ -174,10 +174,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex items-center gap-2">
             <Sprout className="w-4 h-4 text-emerald-700" />
             <span className="font-semibold text-stone-700">FarmiQ</span>
-            <span>— Sustainable Agricultural Logistics & Marketplace</span>
+            <span>— {t.footerTagline || "Sustainable Agricultural Logistics & Marketplace"}</span>
           </div>
           <div className="flex items-center gap-4">
-            <span>Version 2.0 (Python + React)</span>
+            <span>{t.footerVersion || "Version 2.0 (Python + React)"}</span>
           </div>
         </div>
       </footer>

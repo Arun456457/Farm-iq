@@ -29,7 +29,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MandiRate, MandiMarket, LanguageCode, User } from '../types';
 import { api } from '../api';
-import { translations } from '../translations';
+import { translations, translateCrop, translateUnit } from '../translations';
 import { haversineDistanceKm, getCropImage, initialMandiRates, getMandiAreas } from '../data/mandiDatabase';
 
 interface LiveMandiRatesProps {
@@ -373,17 +373,20 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
 
   // Format price helper according to chosen unit (kg or quintal)
   const formatPrice = (pricePerKg: number) => {
+    const unitText = priceUnit === 'quintal' 
+      ? translateUnit('Quintal', language) 
+      : translateUnit('kg', language);
     if (priceUnit === 'quintal') {
       return {
         modal: `₹${(pricePerKg * 100).toLocaleString('en-IN')}`,
-        unit: 'Quintal',
+        unit: unitText,
         min: `₹${(pricePerKg * 100 * 0.85).toFixed(0)}`,
         max: `₹${(pricePerKg * 100 * 1.18).toFixed(0)}`
       };
     }
     return {
       modal: `₹${pricePerKg}`,
-      unit: 'kg',
+      unit: unitText,
       min: `₹${Math.round(pricePerKg * 0.85)}`,
       max: `₹${Math.round(pricePerKg * 1.18)}`
     };
@@ -610,7 +613,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search produce (e.g. Onion, Pyaz, Tomato)..."
+              placeholder={t.cropSearchPlaceholder || "Search produce (e.g. Onion, Pyaz, Tomato)..."}
               className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
@@ -625,7 +628,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                   priceUnit === 'kg' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                ₹ / kg
+                ₹ / {translateUnit('kg', language)}
               </button>
               <button
                 onClick={() => setPriceUnit('quintal')}
@@ -633,7 +636,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                   priceUnit === 'quintal' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                ₹ / Quintal (100 kg)
+                ₹ / {translateUnit('Quintal', language)} (100 kg)
               </button>
             </div>
 
@@ -664,10 +667,10 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
               <button
                 onClick={handleResetFilters}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 text-xs font-semibold transition"
-                title="Reset filters"
+                title={t.resetAllFilters || "Reset filters"}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <span>{t.reset || 'Reset'}</span>
               </button>
             )}
           </div>
@@ -696,7 +699,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                 </span>
                 {selectedMarketDetails.distanceKm !== undefined && (
                   <span className="px-2 py-0.5 rounded-full bg-amber-500/30 border border-amber-400/40 text-amber-300 text-[10px] font-bold flex items-center gap-1">
-                    <MapPin className="w-2.5 h-2.5" /> {selectedMarketDetails.distanceKm} km away
+                    <MapPin className="w-2.5 h-2.5" /> {selectedMarketDetails.distanceKm} {t.kmAway || 'km away'}
                   </span>
                 )}
               </div>
@@ -710,7 +713,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                 </span>
                 <span className="flex items-center gap-1">
                   <Truck className="w-3.5 h-3.5 text-emerald-400" />
-                  {selectedMarketDetails.totalArrivalsToday || 1450} tonnes today
+                  {selectedMarketDetails.totalArrivalsToday || 1450} {t.tonnesToday || 'tonnes today'}
                 </span>
                 {selectedMarketDetails.contact && (
                   <span className="flex items-center gap-1">
@@ -728,7 +731,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                 className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold backdrop-blur-xs border border-white/15 transition flex items-center gap-1.5"
               >
                 <MapIcon className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{viewMode === 'map' ? 'Back to Cards' : 'View on Interactive Map'}</span>
+                <span>{viewMode === 'map' ? (t.backToCards || 'Back to Cards') : (t.viewOnInteractiveMap || 'View on Interactive Map')}</span>
               </button>
             </div>
           </div>
@@ -736,14 +739,14 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
           {/* Major commodities traded at this yard */}
           {selectedMarketDetails.majorCommodities && selectedMarketDetails.majorCommodities.length > 0 && (
             <div className="mt-3.5 pt-3 border-t border-white/10 flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-stone-400 text-[11px] font-medium mr-1">Major Traded Crops:</span>
+              <span className="text-stone-400 text-[11px] font-medium mr-1">{t.majorTradedCrops || 'Major Traded Crops:'}</span>
               {selectedMarketDetails.majorCommodities.map((c, i) => (
                 <button
                   key={i}
                   onClick={() => setSearchQuery(c)}
                   className="px-2 py-0.5 rounded-lg bg-white/10 hover:bg-emerald-600/40 text-stone-200 hover:text-white text-[11px] transition"
                 >
-                  {c}
+                  {translateCrop(c, language)}
                 </button>
               ))}
             </div>
@@ -777,13 +780,13 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
           <div className="p-3.5 bg-stone-50 border-b border-stone-200 flex items-center justify-between">
             <div className="flex items-center gap-2 text-xs font-bold text-stone-800">
               <MapIcon className="w-4 h-4 text-emerald-700" />
-              <span>Interactive APMC Local Mandis Map</span>
+              <span>{t.interactiveMapTitle || "Interactive APMC Local Mandis Map"}</span>
               <span className="text-[11px] font-normal text-stone-500">
-                (Click any pin to select that market yard)
+                {t.interactiveMapSubtitle || "(Click any pin to select that market yard)"}
               </span>
             </div>
             <span className="text-[11px] font-semibold text-emerald-700">
-              {availableMandis.length} Mandis in View
+              {availableMandis.length} {t.mandisInView || "Mandis in View"}
             </span>
           </div>
           <div
@@ -856,10 +859,10 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                           setImageError(null);
                         }}
                         className="absolute bottom-2.5 right-2.5 z-10 px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 text-[11px] font-bold shadow-md hover:shadow-lg transition flex items-center gap-1.5 cursor-pointer border border-amber-300 active:scale-95"
-                        title="Admin: Change crop photo"
+                        title={t.adminChangePhoto || "Admin: Change crop photo"}
                       >
                         <Camera className="w-3.5 h-3.5" />
-                        <span>Edit Photo</span>
+                        <span>{t.editPhoto || "Edit Photo"}</span>
                       </button>
                     )}
 
@@ -873,7 +876,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                         {rate.trend === 'UP' && <ArrowUpRight className="w-3.5 h-3.5" />}
                         {rate.trend === 'DOWN' && <ArrowDownRight className="w-3.5 h-3.5" />}
                         {rate.trend === 'STABLE' && <Minus className="w-3.5 h-3.5" />}
-                        <span>{rate.trend === 'UP' ? `+${rate.pct_change}%` : rate.trend === 'DOWN' ? `-${rate.pct_change}%` : 'Stable'}</span>
+                        <span>{rate.trend === 'UP' ? `+${rate.pct_change}%` : rate.trend === 'DOWN' ? `-${rate.pct_change}%` : (t.stable || "Stable")}</span>
                       </span>
                     </div>
 
@@ -891,7 +894,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="text-lg font-bold text-stone-900 tracking-tight">{rate.crop}</h3>
+                        <h3 className="text-lg font-bold text-stone-900 tracking-tight">{translateCrop(rate.crop, language)}</h3>
                         <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
                           <span className="font-semibold text-stone-700">{rate.mandi}</span>
@@ -899,7 +902,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                         </p>
                         {rate.distanceKm !== undefined && (
                           <span className="text-[10px] text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded mt-1 inline-block">
-                            📍 {rate.distanceKm} km from you
+                            📍 {rate.distanceKm} {t.kmFromYou || "km from you"}
                           </span>
                         )}
                       </div>
@@ -914,12 +917,12 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                     {/* Price Range & Daily Arrivals */}
                     <div className="mt-4 p-3 rounded-xl bg-stone-50 border border-stone-200/80 space-y-1.5 text-xs">
                       <div className="flex justify-between text-stone-600">
-                        <span>Modal Price Range:</span>
+                        <span>{t.modalPriceRange || "Modal Price Range:"}</span>
                         <span className="font-semibold text-stone-800">{priceInfo.min} - {priceInfo.max}</span>
                       </div>
                       <div className="flex justify-between text-stone-600">
-                        <span>Today's Market Arrivals:</span>
-                        <span className="font-semibold text-stone-800">{rate.arrival_tonnes} tonnes</span>
+                        <span>{t.todayMarketArrivals || "Today's Market Arrivals:"}</span>
+                        <span className="font-semibold text-stone-800">{rate.arrival_tonnes} {t.tonnes || "tonnes"}</span>
                       </div>
                     </div>
                   </div>
@@ -929,7 +932,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                 <div className="p-3 bg-emerald-50/70 border-t border-emerald-100 flex items-center justify-between text-[11px] text-emerald-950 font-medium">
                   <span className="text-stone-500">{t.benchmarkAdvice || 'Benchmark Advice'}:</span>
                   <span className="font-bold text-emerald-900">
-                    {rate.trend === 'UP' ? 'Bullish: Strong demand at yard' : rate.trend === 'DOWN' ? 'Bearish: Heavy supply arriving' : 'Balanced trade volume'}
+                    {rate.trend === 'UP' ? (t.bullishAdvice || "Bullish: Strong demand at yard") : rate.trend === 'DOWN' ? (t.bearishAdvice || "Bearish: Heavy supply arriving") : (t.balancedAdvice || "Balanced trade volume")}
                   </span>
                 </div>
               </div>
