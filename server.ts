@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import { createServer as createViteServer } from "vite";
 import fs from "fs";
 import { mandiMarkets, initialMandiRates, findNearestMandi, getMandiAreas, haversineDistanceKm, resolveMandiByLocation, getLocalMandiRateForCrop } from "./src/data/mandiDatabase.ts";
+import { cloudDb, DBState } from "./cloudDb.ts";
 
 dotenv.config();
 
@@ -16,22 +17,6 @@ const DATA_FILE = path.join(projectRoot, "data", "app_state.json");
 const USERS_FILE = path.join(projectRoot, "users.json");
 const DATA_USERS_FILE = path.join(projectRoot, "data", "users.json");
 fs.mkdirSync(path.join(projectRoot, "data"), { recursive: true });
-
-interface DBState {
-  users: any[];
-  products: any[];
-  orders: any[];
-  storage_bookings: any[];
-  contracts: any[];
-  disputes: any[];
-  requirements: any[];
-  lots: any[];
-  verified_buyers: any[];
-  invoices: any[];
-  notifications: any[];
-  payments: any[];
-  fpo_collectives: any[];
-}
 
 const defaultState: DBState = {
   users: [
@@ -116,11 +101,26 @@ function loadState(): DBState {
       if (!merged.notifications) merged.notifications = [];
       if (!merged.payments) merged.payments = [];
 
-      // Purge legacy demo placeholder emails if present
-      merged.users = (merged.users || []).filter((u: any) =>
-        !['farmer.patil@farmiq.in', 'ramesh.farmer.test@farmiq.in', 'priya.sharma@gmail.com', 'rahul.test@gmail.com', 'balasaheb.kadam@farmiq.in', 'ramesh.shinde@farmiq.in', 'sunita.jadhav@farmiq.in', 'ganesh.pawar@farmiq.in', 'nitin.more@farmiq.in', 'arun.gera456@gmail.com', 'anu@gmail.com', 'keer@gmail.com', 'paul986624@gmail.com', 'paul9866224@gmail.com', 'paul@gmail.com', 'akki@gmail.com', 'buyer1@gmail.com'].includes(u.email?.toLowerCase()) &&
-        !String(u.full_name || '').toLowerCase().includes('ramesh patil')
-      );
+      // Ensure all registered users from users.json & data/users.json are always preserved
+      try {
+        const userFiles = [DATA_USERS_FILE, USERS_FILE];
+        for (const uFile of userFiles) {
+          if (fs.existsSync(uFile)) {
+            const uData = JSON.parse(fs.readFileSync(uFile, "utf-8"));
+            const allUsers = [...(uData.farmer_users || []), ...(uData.customer_users || []), ...(uData.buyer_users || [])];
+            if (!merged.users) merged.users = [];
+            const existingEmails = new Set(merged.users.map((u: any) => (u.email || '').toLowerCase()));
+            const existingIds = new Set(merged.users.map((u: any) => Number(u.id)));
+            for (const u of allUsers) {
+              if (u.email && !existingEmails.has(u.email.toLowerCase()) && !existingIds.has(Number(u.id))) {
+                merged.users.push(u);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error merging users from users.json in loadState:", err);
+      }
 
       merged.products = (merged.products || []).filter((p: any) =>
         !String(p.farmer_name || '').includes('Suresh') &&
@@ -227,8 +227,7 @@ function syncUsersFile(users: any[]) {
 
 function saveState(state: DBState) {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(state, null, 2), "utf-8");
-    syncUsersFile(state.users);
+    cloudDb.save(state);
   } catch (err) {
     console.error("Error saving state file:", err);
   }
@@ -429,8 +428,32 @@ function getAppBaseUrl(req?: express.Request): string {
 }
 
 async function startServer() {
+  // Connect to Cloud Database (MongoDB Atlas / PostgreSQL) or fallback to local
+  try {
+    const cloudLoaded = await cloudDb.init(db);
+    if (cloudLoaded) {
+      db = cloudLoaded;
+    }
+  } catch (err: any) {
+    console.error("[Server] Cloud DB initialization warning:", err.message);
+  }
+
   const app = express();
   app.use(express.json({ limit: "25mb" }));
+
+  // CLOUD DATABASE & SYSTEM DIAGNOSTICS
+  app.get("/api/system/db-status", (req, res) => {
+    res.json(cloudDb.getStatus(db));
+  });
+
+  app.post("/api/system/db-sync", async (req, res) => {
+    try {
+      await cloudDb.flushCloudSave();
+      res.json({ success: true, message: "Synchronized with database", status: cloudDb.getStatus(db) });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // Forward declaration for Mandi benchmarks in scope of all endpoints
   let defaultMandiRates: any[] = [];
@@ -3761,10 +3784,12 @@ Answer warmly and concisely in simple markdown bullet points. Provide actionable
   }
 
   app.listen(PORT, () => {
+    const dbStatus = cloudDb.getStatus(db);
     console.log(`\n  ======================================================`);
     console.log(`  🌾 FarmiQ Platform is running!`);
     console.log(`  ➜ Local URL:   http://localhost:${PORT}/`);
     console.log(`  ➜ Network URL: http://127.0.0.1:${PORT}/`);
+    console.log(`  ➜ Cloud DB:    ${dbStatus.provider.toUpperCase()} (${dbStatus.statusMessage})`);
     console.log(`  ======================================================`);
     console.log(`  💡 Notice on "Connection is not secure" / "Not Secure":`);
     console.log(`     Make sure to open with "http://" (NOT "https://").`);

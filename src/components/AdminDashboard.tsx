@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   ShieldAlert, Users, Package, ShoppingBag, IndianRupee, Warehouse, 
   FileText, AlertTriangle, CheckCircle, RefreshCw, Eye, Truck, FilePlus, Filter,
-  ShieldCheck, Building2, Check, X, Phone, Mail, MapPin, CheckCircle2, XCircle
+  ShieldCheck, Building2, Check, X, Phone, Mail, MapPin, CheckCircle2, XCircle,
+  Database, Cloud, HardDrive
 } from 'lucide-react';
 import { User, Product, Order, Dispute, LanguageCode, CustomerRequirement, StorageBooking, VerifiedBuyer } from '../types';
 import { api } from '../api';
@@ -29,6 +30,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
   const [buyerActionMsg, setBuyerActionMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Cloud Database state
+  const [dbStatus, setDbStatus] = useState<any>(null);
+  const [isSyncingDb, setIsSyncingDb] = useState(false);
+  const [dbSyncMsg, setDbSyncMsg] = useState<string | null>(null);
+
   // Live tracking modal for Admin
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
 
@@ -46,14 +52,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
   const fetchAdminData = async (isFirstLoad = false) => {
     try {
       if (isFirstLoad) setLoading(true);
-      const [over, uList, dList, rList, sList, bList, mData] = await Promise.all([
+      const [over, uList, dList, rList, sList, bList, mData, dbStat] = await Promise.all([
         api.getAdminOverview(),
         api.getAdminUsers(),
         api.getDisputes(),
         api.getRequirements(),
         api.getStorageBookings(),
         api.getAdminBuyers().catch(() => []),
-        api.getAdminMonetization().catch(() => null)
+        api.getAdminMonetization().catch(() => null),
+        api.getDbStatus().catch(() => null)
       ]);
       setOverview(over);
       setUsersList(uList.users || []);
@@ -62,6 +69,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
       setStorageBookings(sList || []);
       setBuyersList(bList || []);
       setMonetization(mData);
+      if (dbStat) setDbStatus(dbStat);
     } catch (err) {
       console.error("Admin sync error:", err);
     } finally {
@@ -141,6 +149,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
     }
   };
 
+  const handleManualDbSync = async () => {
+    setIsSyncingDb(true);
+    setDbSyncMsg(null);
+    try {
+      const res = await api.syncDb();
+      if (res.status) setDbStatus(res.status);
+      setDbSyncMsg("✓ Synced with database!");
+    } catch (err: any) {
+      setDbSyncMsg(`⚠️ Sync failed: ${err.message}`);
+    } finally {
+      setIsSyncingDb(false);
+      setTimeout(() => setDbSyncMsg(null), 4000);
+    }
+  };
+
   const allOrders: Order[] = overview?.recent_orders || [];
   const filteredOrders = orderStatusFilter === 'ALL' 
     ? allOrders 
@@ -172,6 +195,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
           <RefreshCw className="w-4 h-4" />
           <span>Refresh Metrics</span>
         </button>
+      </div>
+
+      {/* Cloud Database & Persistent Storage Status Banner */}
+      <div className="bg-stone-900 text-white rounded-2xl p-4 sm:p-5 mb-6 border border-stone-800 shadow-md">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+              dbStatus?.provider === 'mongodb' 
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                : dbStatus?.provider === 'postgres' 
+                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+            }`}>
+              {dbStatus?.provider === 'mongodb' ? (
+                <Cloud className="w-5 h-5" />
+              ) : dbStatus?.provider === 'postgres' ? (
+                <Database className="w-5 h-5" />
+              ) : (
+                <HardDrive className="w-5 h-5" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-sm font-['Outfit']">Database Persistence:</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1.5 ${
+                  dbStatus?.connected 
+                    ? 'bg-emerald-950 text-emerald-300 border border-emerald-700' 
+                    : 'bg-amber-950 text-amber-300 border border-amber-700'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${dbStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`}></span>
+                  {dbStatus?.provider === 'mongodb' ? 'MongoDB Atlas (Cloud)' : dbStatus?.provider === 'postgres' ? 'PostgreSQL (Cloud)' : 'Local File Storage'}
+                </span>
+                {dbStatus?.counts && (
+                  <span className="text-[11px] text-stone-400 bg-stone-800 px-2 py-0.5 rounded-md font-mono">
+                    {dbStatus.counts.users} Users • {dbStatus.counts.products} Products • {dbStatus.counts.orders} Orders
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-stone-300 mt-1">
+                {dbStatus?.statusMessage || 'Checking database connection...'}
+                {dbStatus?.lastSyncedAt && (
+                  <span className="text-stone-400 ml-2 text-[11px]">
+                    • Last synced: {new Date(dbStatus.lastSyncedAt).toLocaleTimeString()}
+                  </span>
+                )}
+              </p>
+              {dbStatus?.provider === 'local' && (
+                <div className="mt-2 text-[11px] text-amber-300 bg-amber-950/60 px-3 py-1.5 rounded-lg border border-amber-800/60">
+                  💡 <strong>To persist data across Render redeploys:</strong> Add <code className="bg-stone-800 px-1 py-0.5 rounded text-amber-200">MONGODB_URI</code> or <code className="bg-stone-800 px-1 py-0.5 rounded text-amber-200">DATABASE_URL</code> in Render Environment Variables.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
+            {dbSyncMsg && (
+              <span className="text-xs font-semibold text-emerald-400">{dbSyncMsg}</span>
+            )}
+            <button
+              onClick={handleManualDbSync}
+              disabled={isSyncingDb}
+              className="px-3.5 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 hover:text-white font-bold text-xs flex items-center gap-1.5 transition disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncingDb ? 'animate-spin text-emerald-400' : ''}`} />
+              <span>{isSyncingDb ? 'Syncing...' : 'Sync Database'}</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* KPI Overview Cards */}
