@@ -172,7 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <ShoppingBag className="w-3.5 h-3.5 text-amber-600" />
-                    Buyer Orders
+                    {t.buyerOrders || 'Buyer Orders'}
                   </button>
                   <button
                     id="nav-buyer-fpo"
@@ -182,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <Package className="w-3.5 h-3.5 text-emerald-700" />
-                    Procure FPO Lots
+                    {t.procureFpoLots || 'Procure FPO Lots'}
                   </button>
                   <button
                     id="nav-buyer-contracts"
@@ -192,7 +192,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5 text-purple-700" />
-                    Digital Contracts & Escrow
+                    {t.digitalContractsEscrow || 'Digital Contracts & Escrow'}
                   </button>
                 </>
               )}
@@ -201,19 +201,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               {currentTab === 'contracts' && (
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-purple-100 text-purple-900 border border-purple-200 text-xs font-bold shadow-xs">
                   <FileText className="w-3.5 h-3.5 text-purple-700" />
-                  Digital Contracts
+                  {t.digitalContracts || 'Digital Contracts'}
                 </span>
               )}
               {currentTab === 'mandi-rates' && (
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold shadow-xs">
                   <TrendingUp className="w-3.5 h-3.5 text-amber-600" />
-                  Live Mandi Rates
+                  {t.liveMandiRates || 'Live Mandi Rates'}
                 </span>
               )}
               {currentTab === 'storage' && (
                 <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-100 text-blue-900 border border-blue-200 text-xs font-bold shadow-xs">
                   <Warehouse className="w-3.5 h-3.5 text-blue-600" />
-                  Storage & Logistics
+                  {t.storageLogistics || 'Storage & Logistics'}
                 </span>
               )}
             </nav>
@@ -227,11 +227,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 id="btn-install-app-header"
                 type="button"
                 onClick={onOpenInstallModal}
-                title="Install FarmiQ on Desktop or Mobile"
+                title={t.installFarmiQ || "Install FarmiQ on Desktop or Mobile"}
                 className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-xs transition cursor-pointer shrink-0 active:scale-95"
               >
                 <Download className="w-3.5 h-3.5 shrink-0" />
-                <span>Install FarmiQ</span>
+                <span>{t.installFarmiQ || 'Install FarmiQ'}</span>
               </button>
             )}
 
@@ -497,7 +497,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           >
                             <div className="flex items-center gap-2.5">
                               <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span className="text-xs">Buyer Orders</span>
+                              <span className="text-xs">{t.buyerOrders || 'Buyer Orders'}</span>
                             </div>
                             {currentTab === 'buyer-orders' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
                           </button>
@@ -514,7 +514,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           >
                             <div className="flex items-center gap-2.5">
                               <Package className="w-4 h-4 text-emerald-700 shrink-0" />
-                              <span className="text-xs">Procure FPO Lots</span>
+                              <span className="text-xs">{t.procureFpoLots || 'Procure FPO Lots'}</span>
                             </div>
                             {currentTab === 'buyer-fpo' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
                           </button>

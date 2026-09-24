@@ -30,6 +30,7 @@ import 'leaflet/dist/leaflet.css';
 import { MandiRate, MandiMarket, LanguageCode, User } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
+import { translateText } from '../utils/domTranslator';
 import { haversineDistanceKm, getCropImage, initialMandiRates, getMandiAreas } from '../data/mandiDatabase';
 
 interface LiveMandiRatesProps {
@@ -373,17 +374,20 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
 
   // Format price helper according to chosen unit (kg or quintal)
   const formatPrice = (pricePerKg: number) => {
+    const unitText = priceUnit === 'quintal' 
+      ? translateText('Quintal', language) 
+      : translateText('kg', language);
     if (priceUnit === 'quintal') {
       return {
         modal: `₹${(pricePerKg * 100).toLocaleString('en-IN')}`,
-        unit: 'Quintal',
+        unit: unitText,
         min: `₹${(pricePerKg * 100 * 0.85).toFixed(0)}`,
         max: `₹${(pricePerKg * 100 * 1.18).toFixed(0)}`
       };
     }
     return {
       modal: `₹${pricePerKg}`,
-      unit: 'kg',
+      unit: unitText,
       min: `₹${Math.round(pricePerKg * 0.85)}`,
       max: `₹${Math.round(pricePerKg * 1.18)}`
     };
@@ -610,7 +614,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search produce (e.g. Onion, Pyaz, Tomato)..."
+              placeholder={t.cropSearchPlaceholder || "Search produce (e.g. Onion, Pyaz, Tomato)..."}
               className="w-full pl-9 pr-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-500"
             />
           </div>
@@ -625,7 +629,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                   priceUnit === 'kg' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                ₹ / kg
+                ₹ / {translateText('kg', language)}
               </button>
               <button
                 onClick={() => setPriceUnit('quintal')}
@@ -633,7 +637,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                   priceUnit === 'quintal' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                ₹ / Quintal (100 kg)
+                ₹ / {translateText('Quintal (100 kg)', language)}
               </button>
             </div>
 
@@ -664,10 +668,10 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
               <button
                 onClick={handleResetFilters}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-stone-500 hover:text-stone-800 hover:bg-stone-100 text-xs font-semibold transition"
-                title="Reset filters"
+                title={t.resetFilters || "Reset filters"}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>Reset</span>
+                <span>{t.resetFilters || 'Reset'}</span>
               </button>
             )}
           </div>
@@ -837,7 +841,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                     {/* Variety Badge */}
                     <div className="absolute top-3 left-3">
                       <span className="text-[10px] font-bold bg-black/75 backdrop-blur-md text-white px-2.5 py-1 rounded-full">
-                        {rate.variety}
+                        {translateText(rate.variety, language)}
                       </span>
                     </div>
 
@@ -856,10 +860,10 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                           setImageError(null);
                         }}
                         className="absolute bottom-2.5 right-2.5 z-10 px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 text-[11px] font-bold shadow-md hover:shadow-lg transition flex items-center gap-1.5 cursor-pointer border border-amber-300 active:scale-95"
-                        title="Admin: Change crop photo"
+                        title={translateText("Admin: Change crop photo", language)}
                       >
                         <Camera className="w-3.5 h-3.5" />
-                        <span>Edit Photo</span>
+                        <span>{translateText('Edit Photo', language)}</span>
                       </button>
                     )}
 
@@ -873,7 +877,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                         {rate.trend === 'UP' && <ArrowUpRight className="w-3.5 h-3.5" />}
                         {rate.trend === 'DOWN' && <ArrowDownRight className="w-3.5 h-3.5" />}
                         {rate.trend === 'STABLE' && <Minus className="w-3.5 h-3.5" />}
-                        <span>{rate.trend === 'UP' ? `+${rate.pct_change}%` : rate.trend === 'DOWN' ? `-${rate.pct_change}%` : 'Stable'}</span>
+                        <span>{rate.trend === 'UP' ? `+${rate.pct_change}%` : rate.trend === 'DOWN' ? `-${rate.pct_change}%` : translateText('Stable', language)}</span>
                       </span>
                     </div>
 
@@ -881,7 +885,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                     {rate.category && (
                       <div className="absolute bottom-3 left-3">
                         <span className="text-[9px] font-bold uppercase tracking-wider bg-white/90 backdrop-blur-md text-stone-800 px-2 py-0.5 rounded-md shadow-2xs">
-                          {rate.category}
+                          {translateText(rate.category, language)}
                         </span>
                       </div>
                     )}
@@ -891,15 +895,15 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h3 className="text-lg font-bold text-stone-900 tracking-tight">{rate.crop}</h3>
+                        <h3 className="text-lg font-bold text-stone-900 tracking-tight">{translateText(rate.crop, language)}</h3>
                         <p className="text-xs text-stone-500 flex items-center gap-1 mt-0.5">
                           <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span className="font-semibold text-stone-700">{rate.mandi}</span>
-                          {rate.district ? `(${rate.district})` : `(${rate.state})`}
+                          <span className="font-semibold text-stone-700">{translateText(rate.mandi, language)}</span>
+                          {rate.district ? `(${translateText(rate.district, language)})` : `(${translateText(rate.state, language)})`}
                         </p>
                         {rate.distanceKm !== undefined && (
                           <span className="text-[10px] text-amber-800 font-bold bg-amber-50 px-1.5 py-0.5 rounded mt-1 inline-block">
-                            📍 {rate.distanceKm} km from you
+                            📍 {rate.distanceKm} {translateText('km from you', language)}
                           </span>
                         )}
                       </div>
@@ -914,12 +918,12 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                     {/* Price Range & Daily Arrivals */}
                     <div className="mt-4 p-3 rounded-xl bg-stone-50 border border-stone-200/80 space-y-1.5 text-xs">
                       <div className="flex justify-between text-stone-600">
-                        <span>Modal Price Range:</span>
+                        <span>{translateText('Modal Price Range:', language)}</span>
                         <span className="font-semibold text-stone-800">{priceInfo.min} - {priceInfo.max}</span>
                       </div>
                       <div className="flex justify-between text-stone-600">
-                        <span>Today's Market Arrivals:</span>
-                        <span className="font-semibold text-stone-800">{rate.arrival_tonnes} tonnes</span>
+                        <span>{translateText("Today's Market Arrivals:", language)}</span>
+                        <span className="font-semibold text-stone-800">{rate.arrival_tonnes} {translateText('tonnes', language)}</span>
                       </div>
                     </div>
                   </div>
@@ -929,7 +933,7 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
                 <div className="p-3 bg-emerald-50/70 border-t border-emerald-100 flex items-center justify-between text-[11px] text-emerald-950 font-medium">
                   <span className="text-stone-500">{t.benchmarkAdvice || 'Benchmark Advice'}:</span>
                   <span className="font-bold text-emerald-900">
-                    {rate.trend === 'UP' ? 'Bullish: Strong demand at yard' : rate.trend === 'DOWN' ? 'Bearish: Heavy supply arriving' : 'Balanced trade volume'}
+                    {rate.trend === 'UP' ? translateText('Bullish: Strong demand at yard', language) : rate.trend === 'DOWN' ? translateText('Bearish: Heavy supply arriving', language) : translateText('Balanced trade volume', language)}
                   </span>
                 </div>
               </div>

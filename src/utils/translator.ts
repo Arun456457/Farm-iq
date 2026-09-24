@@ -1,10 +1,15 @@
 import { LanguageCode } from '../types';
+import { applyDomTranslation } from './domTranslator';
 
 /**
- * Trigger deep full-page DOM translation using Google Translate
+ * Trigger deep full-page DOM translation using both real-time DOM translation engine
+ * and Google Translate fallback for 100% word-by-word coverage
  */
 export function triggerFullPageTranslation(lang: LanguageCode) {
   try {
+    // 1. Immediately apply universal recursive DOM translation
+    applyDomTranslation(lang);
+
     const googleLang = lang === 'en' ? 'en' : lang;
     const host = window.location.hostname;
 

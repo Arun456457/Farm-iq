@@ -106,7 +106,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     chatWithAi: "Chat with Kisan AI",
     sellNow: "Sell Now",
     waitDays: "Wait 1-2 Days",
-    fairPricingPolicy: "Platform Fair Pricing Benchmark"
+    fairPricingPolicy: "Platform Fair Pricing Benchmark",
+    buyerOrders: "Buyer Orders",
+    digitalContractsEscrow: "Digital Contracts & Escrow",
+    installFarmiQ: "Install FarmiQ",
+    setLocation: "Set Location",
+    resetFilters: "Reset All Filters",
+    cropSearchPlaceholder: "Search produce (e.g. Onion, Pyaz, Tomato)..."
   },
   hi: {
     appName: "फार्मआईक्यू (FarmiQ)",
@@ -212,7 +218,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     chatWithAi: "किसान एआई से बात करें",
     sellNow: "तुरंत बेचें",
     waitDays: "1-2 दिन प्रतीक्षा करें",
-    fairPricingPolicy: "मंच उचित मूल्य निर्धारण नीति"
+    fairPricingPolicy: "मंच उचित मूल्य निर्धारण नीति",
+    buyerOrders: "थोक खरीदार ऑर्डर",
+    digitalContractsEscrow: "डिजिटल अनुबंध और एस्क्रो",
+    installFarmiQ: "फार्मआईक्यू इंस्टॉल करें",
+    setLocation: "स्थान निर्धारित करें",
+    resetFilters: "सभी फ़िल्टर रीसेट करें",
+    cropSearchPlaceholder: "फसल खोजें (जैसे प्याज, टमाटर, गेहूं)..."
   },
   te: {
     appName: "ఫార్మ్ఐక్యూ (FarmiQ)",
@@ -318,7 +330,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     chatWithAi: "కిసాన్ ఏఐతో మాట్లాడండి",
     sellNow: "వెంటనే అమ్మండి",
     waitDays: "1-2 రోజులు వేచి ఉండండి",
-    fairPricingPolicy: "మార్కెట్ న్యాయమైన ధర విధానం"
+    fairPricingPolicy: "మార్కెట్ న్యాయమైన ధర విధానం",
+    buyerOrders: "కొనుగోలుదారు ఆర్డర్లు",
+    digitalContractsEscrow: "డిజిటల్ ఒప్పందాలు & ఎస్క్రో",
+    installFarmiQ: "ఫార్మ్ఐక్యూ ఇన్‌స్టాల్ చేయండి",
+    setLocation: "లొకేషన్ సెట్ చేయండి",
+    resetFilters: "అన్ని ఫిల్టర్లను రీసెట్ చేయండి",
+    cropSearchPlaceholder: "పంట కోసం వెతకండి (ఉదా: ఉల్లిపాయ, టమోటా, గోధుమలు)..."
   },
   mr: {
     appName: "फार्मआयक्यू (FarmiQ)",
@@ -424,6 +442,12 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     chatWithAi: "किसान एआयशी बोला",
     sellNow: "त्वरित विका",
     waitDays: "१-२ दिवस थांबा",
-    fairPricingPolicy: "व्यासपीठ रास्त भाव धोरण"
+    fairPricingPolicy: "व्यासपीठ रास्त भाव धोरण",
+    buyerOrders: "खरेदीदार ऑर्डर्स",
+    digitalContractsEscrow: "डिजिटल करार आणि एस्क्रो",
+    installFarmiQ: "फार्मआयक्यू इन्स्टॉल करा",
+    setLocation: "ठिकाण निश्चित करा",
+    resetFilters: "सर्व फिल्टर्स रीसेट करा",
+    cropSearchPlaceholder: "शेतीमाल शोधा (उदा. कांदा, टोमॅटो, गहू)..."
   }
 };
