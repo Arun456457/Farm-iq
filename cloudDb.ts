@@ -17,6 +17,7 @@ export interface DBState {
   notifications: any[];
   payments: any[];
   fpo_collectives: any[];
+  mandi_images?: Record<string, string>;
 }
 
 export type DbProviderType = "mongodb" | "postgres" | "local";

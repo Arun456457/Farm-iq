@@ -18,17 +18,23 @@ import {
   RotateCcw,
   CheckCircle2,
   AlertCircle,
-  HelpCircle
+  HelpCircle,
+  Camera,
+  Check,
+  Upload,
+  X,
+  Image as ImageIcon
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { MandiRate, MandiMarket, LanguageCode } from '../types';
+import { MandiRate, MandiMarket, LanguageCode, User } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
 import { haversineDistanceKm, getCropImage } from '../data/mandiDatabase';
 
 interface LiveMandiRatesProps {
   language: LanguageCode;
+  user?: User | null;
 }
 
 const CATEGORIES = [
@@ -41,8 +47,15 @@ const CATEGORIES = [
   { id: 'Cash Crops', labelKey: 'filterCash' }
 ];
 
-export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language }) => {
+export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }) => {
   const t = translations[language];
+
+  // Admin Crop Image Edit States
+  const [editingCrop, setEditingCrop] = useState<{ crop: string; currentImage: string; variety?: string } | null>(null);
+  const [newImageUrl, setNewImageUrl] = useState<string>('');
+  const [savingImage, setSavingImage] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   // Data states
   const [mandiRates, setMandiRates] = useState<MandiRate[]>([]);
@@ -375,8 +388,93 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language }) => {
     };
   };
 
+  // Handle Admin image save
+  const handleSaveCropImage = async () => {
+    if (!editingCrop || !newImageUrl.trim()) return;
+    try {
+      setSavingImage(true);
+      setImageError(null);
+      await api.updateMandiImage(editingCrop.crop, newImageUrl.trim());
+      setMandiRates(prev => prev.map(r => 
+        (r.crop.toLowerCase() === editingCrop.crop.toLowerCase() || editingCrop.crop.toLowerCase().includes(r.crop.toLowerCase()))
+          ? { ...r, image: newImageUrl.trim() }
+          : r
+      ));
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setEditingCrop(null);
+      }, 1200);
+    } catch (err: any) {
+      setImageError(err.message || 'Failed to update image');
+    } finally {
+      setSavingImage(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be under 5MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setNewImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const CROP_PHOTO_PRESETS = [
+    { name: 'Fresh Tomato', url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Red Onion', url: 'https://images.unsplash.com/photo-1618512496248-a07fe83aa8cb?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Potatoes', url: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Ripe Mango', url: 'https://images.unsplash.com/photo-1553279768-865429fa0078?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Golden Wheat', url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Rice / Paddy', url: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Green Chilli', url: 'https://images.unsplash.com/photo-1588252303782-cb80119abd6d?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Red Chilli', url: 'https://images.unsplash.com/photo-1582281298055-e25b84a30b0b?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Garlic Bulbs', url: 'https://images.unsplash.com/photo-1540148426945-6cf22a6b2383?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Ginger Root', url: 'https://images.unsplash.com/photo-1615485500704-8e990f9900f7?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Turmeric Root', url: 'https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Bananas', url: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Fresh Apples', url: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Green Grapes', url: 'https://images.unsplash.com/photo-1537640538966-79f369143f8f?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Pomegranate', url: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Fresh Guava', url: 'https://images.unsplash.com/photo-1596704017254-9b121068fb31?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Okra / Bhindi', url: 'https://images.unsplash.com/photo-1601493700631-2b16ec4b4716?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Fresh Coriander', url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Yellow Moong Dal', url: 'https://images.unsplash.com/photo-1516512248820-6c9b542cdfaf?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Tur / Arhar Dal', url: 'https://images.unsplash.com/photo-1543362906-acfc16c67564?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Mustard Crop', url: 'https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Green Cardamom', url: 'https://images.unsplash.com/photo-1587735243615-c03f25aaff15?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Black Pepper', url: 'https://images.unsplash.com/photo-1509358271058-acd22cc93898?w=500&auto=format&fit=crop&q=80' },
+    { name: 'Fresh Coconut', url: 'https://images.unsplash.com/photo-1544376798-89aa6b82c6cd?w=500&auto=format&fit=crop&q=80' }
+  ];
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-left">
+      {/* Admin Photo Management Mode Banner */}
+      {user && user.role === 'admin' && (
+        <div className="mb-4 px-4 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl flex flex-wrap items-center justify-between gap-2 text-xs text-amber-950 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded-full bg-amber-400 text-stone-900 font-black text-[10px] tracking-wider uppercase">
+              Admin Mode
+            </span>
+            <span className="font-semibold">
+              Live Mandi Photo Editor Active: Click <strong>"Edit Photo"</strong> on any produce card to change or customize its photo across the entire platform.
+            </span>
+          </div>
+          <span className="text-[11px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-lg border border-amber-200">
+            {mandiRates.length} Commodities Active
+          </span>
+        </div>
+      )}
+
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
         <div>
@@ -742,6 +840,28 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language }) => {
                       </span>
                     </div>
 
+                    {/* Admin Edit Photo Button */}
+                    {user && user.role === 'admin' && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingCrop({
+                            crop: rate.crop,
+                            currentImage: rate.image || getCropImage(rate.crop),
+                            variety: rate.variety
+                          });
+                          setNewImageUrl(rate.image || getCropImage(rate.crop));
+                          setSaveSuccess(false);
+                          setImageError(null);
+                        }}
+                        className="absolute bottom-2.5 right-2.5 z-10 px-2.5 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-stone-950 text-[11px] font-bold shadow-md hover:shadow-lg transition flex items-center gap-1.5 cursor-pointer border border-amber-300 active:scale-95"
+                        title="Admin: Change crop photo"
+                      >
+                        <Camera className="w-3.5 h-3.5" />
+                        <span>Edit Photo</span>
+                      </button>
+                    )}
+
                     {/* Trend Pill */}
                     <div className="absolute top-3 right-3">
                       <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shadow-xs flex items-center gap-1 ${
@@ -814,6 +934,185 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language }) => {
               </div>
             );
           })}
+        </div>
+      )}
+      {/* Admin Produce Photo Edit Modal */}
+      {editingCrop && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-stone-200 text-stone-900 flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-4 bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Camera className="w-5 h-5 text-amber-100" />
+                <div>
+                  <h3 className="text-sm font-bold">Edit Produce Photo</h3>
+                  <p className="text-[10px] text-amber-100">
+                    Customizing photo for <strong>{editingCrop.crop}</strong> ({editingCrop.variety})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingCrop(null)}
+                className="p-1 rounded-xl hover:bg-white/20 text-white transition"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 overflow-y-auto space-y-4 text-xs">
+              {/* Preview Comparison */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider">Current Photo</span>
+                  <div className="h-28 rounded-xl overflow-hidden border border-stone-200 bg-stone-100">
+                    <img
+                      src={editingCrop.currentImage}
+                      alt={editingCrop.crop}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">New Preview</span>
+                  <div className="h-28 rounded-xl overflow-hidden border-2 border-emerald-500 bg-stone-100">
+                    <img
+                      src={newImageUrl || editingCrop.currentImage}
+                      alt={editingCrop.crop}
+                      className="w-full h-full object-cover"
+                      onError={(e: any) => {
+                        e.target.onerror = null;
+                        e.target.src = editingCrop.currentImage;
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* URL Input */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-stone-700 block">
+                  Image URL (Paste Unsplash or direct image link):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newImageUrl}
+                    onChange={(e) => setNewImageUrl(e.target.value)}
+                    placeholder="https://images.unsplash.com/photo-..."
+                    className="flex-1 px-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  />
+                  {newImageUrl && (
+                    <button
+                      onClick={() => setNewImageUrl('')}
+                      className="px-2 py-2 text-stone-400 hover:text-stone-600 text-xs font-bold"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Upload Local Image */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
+                  <span>Or Upload Image File:</span>
+                  <span className="text-[10px] text-stone-400 font-normal">JPG, PNG (Max 5MB)</span>
+                </label>
+                <label className="flex items-center justify-center gap-2 p-2.5 border-2 border-dashed border-stone-300 hover:border-amber-500 rounded-xl cursor-pointer text-stone-600 hover:text-amber-800 bg-stone-50 hover:bg-amber-50/50 transition">
+                  <Upload className="w-4 h-4 text-amber-600" />
+                  <span className="text-xs font-semibold">Choose photo from computer</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+
+              {/* Curated High-Definition Agricultural Presets */}
+              <div className="space-y-1.5 pt-2 border-t border-stone-100">
+                <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
+                  <span>Quick Authentic Presets:</span>
+                  <span className="text-[10px] text-emerald-700 font-semibold">Tested 100% Matching</span>
+                </label>
+                <div className="grid grid-cols-4 gap-2 max-h-36 overflow-y-auto p-1 bg-stone-50 rounded-xl border border-stone-200">
+                  {CROP_PHOTO_PRESETS.map((preset, pIdx) => {
+                    const isSelected = newImageUrl === preset.url;
+                    return (
+                      <button
+                        key={pIdx}
+                        type="button"
+                        onClick={() => setNewImageUrl(preset.url)}
+                        className={`p-1 rounded-lg border text-left flex flex-col items-center gap-1 transition ${
+                          isSelected
+                            ? 'border-emerald-600 bg-emerald-50 ring-2 ring-emerald-500'
+                            : 'border-stone-200 bg-white hover:border-amber-400'
+                        }`}
+                      >
+                        <div className="w-full h-12 rounded overflow-hidden bg-stone-100">
+                          <img
+                            src={preset.url}
+                            alt={preset.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-[9px] font-bold text-stone-700 truncate w-full text-center">
+                          {preset.name}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Success / Error Feedback */}
+              {imageError && (
+                <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{imageError}</span>
+                </div>
+              )}
+
+              {saveSuccess && (
+                <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>Crop photo updated successfully across FarmiQ!</span>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="p-4 bg-stone-50 border-t border-stone-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setEditingCrop(null)}
+                disabled={savingImage}
+                className="px-4 py-2 rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-100 text-xs font-bold transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveCropImage}
+                disabled={savingImage || !newImageUrl.trim()}
+                className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 text-xs font-bold flex items-center gap-2 shadow-xs transition disabled:opacity-50 cursor-pointer"
+              >
+                {savingImage ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving to Cloud...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Save & Apply Photo</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -36,17 +36,19 @@ export default function App() {
     try {
       localStorage.setItem('farmiq_lang', newLang);
     } catch {}
+    triggerFullPageTranslation(newLang);
   };
 
+  const [currentTab, setCurrentTab] = useState<string>('landing');
+  
   useEffect(() => {
     if (language !== 'en') {
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         triggerFullPageTranslation(language);
-      }, 500);
+      }, 350);
+      return () => clearTimeout(timer);
     }
-  }, []);
-
-  const [currentTab, setCurrentTab] = useState<string>('landing');
+  }, [language, currentTab]);
   
   // Auth modal
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -378,7 +380,7 @@ export default function App() {
 
         {/* Common Modules: Live Mandi Rates */}
         {currentTab === 'mandi-rates' && (
-          <LiveMandiRates language={language} />
+          <LiveMandiRates language={language} user={user} />
         )}
 
         {/* Common Modules: Storage & Logistics */}

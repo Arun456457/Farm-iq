@@ -292,6 +292,13 @@ export const api = {
     method: 'POST'
   }),
 
+  // Admin Mandi Produce Photo Management
+  updateMandiImage: (crop: string, image: string) => request<{ success: boolean; crop: string; image: string }>('/admin/mandi-image', {
+    method: 'POST',
+    body: JSON.stringify({ crop, image })
+  }),
+  getMandiImages: () => request<{ mandi_images: Record<string, string> }>('/admin/mandi-images'),
+
   // Gemini AI Chat
   sendChat: (message: string, context?: any, userRole?: string) => request<{ reply: string }>('/chat', {
     method: 'POST',

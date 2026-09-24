@@ -6,38 +6,43 @@ import { LanguageCode } from '../types';
 export function triggerFullPageTranslation(lang: LanguageCode) {
   try {
     const googleLang = lang === 'en' ? 'en' : lang;
-
-    // 1. Set Google Translate cookie
     const host = window.location.hostname;
+
+    // 1. Set Google Translate cookie on all paths and domain variations
     if (lang === 'en') {
-      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
       document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=${host};`;
-      document.cookie = `googtrans=/en/en; path=/;`;
-      document.cookie = `googtrans=/en/en; path=/; domain=${host};`;
+      document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${host};`;
+      document.cookie = 'googtrans=/en/en; path=/;';
     } else {
       document.cookie = `googtrans=/en/${googleLang}; path=/;`;
-      document.cookie = `googtrans=/en/${googleLang}; path=/; domain=${host};`;
+      try {
+        document.cookie = `googtrans=/en/${googleLang}; path=/; domain=${host};`;
+        if (host.includes('.') && !host.endsWith('onrender.com')) {
+          document.cookie = `googtrans=/en/${googleLang}; path=/; domain=.${host};`;
+        }
+      } catch {}
     }
 
     // 2. Dispatch change event to Google Translate combo selector
-    const tryApply = () => {
+    const tryApply = (): boolean => {
       const combo = document.querySelector('.goog-te-combo') as HTMLSelectElement | null;
       if (combo) {
         combo.value = googleLang;
-        combo.dispatchEvent(new Event('change'));
+        combo.dispatchEvent(new Event('change', { bubbles: true }));
         return true;
       }
       return false;
     };
 
     if (!tryApply()) {
-      // Try again after short intervals if Google Translate script was loading
+      let attempts = 0;
       const interval = setInterval(() => {
-        if (tryApply()) {
+        attempts++;
+        if (tryApply() || attempts > 12) {
           clearInterval(interval);
         }
-      }, 300);
-      setTimeout(() => clearInterval(interval), 5000);
+      }, 250);
     }
   } catch (e) {
     console.error("Translation trigger error:", e);

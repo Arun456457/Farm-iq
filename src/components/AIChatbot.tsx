@@ -2,9 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   Bot,
   X,
-  Send,
   Sparkles,
-  Sprout,
   MessageSquare,
   Loader2,
   HelpCircle,
@@ -13,10 +11,13 @@ import {
   Tag,
   Search,
   ArrowRight,
-  Edit3
+  RotateCcw,
+  CheckCircle2,
+  Globe
 } from 'lucide-react';
 import { User, LanguageCode } from '../types';
 import { api } from '../api';
+import { CHATBOT_40_QUESTIONS, CHATBOT_CATEGORIES, ChatbotQuestion } from '../data/chatbotQuestions';
 
 interface AIChatbotProps {
   user: User | null;
@@ -30,253 +31,135 @@ interface ChatMessage {
   time: string;
 }
 
-interface FAQItem {
-  id: string;
-  category: 'orders' | 'farmer' | 'mandi' | 'contracts' | 'disputes' | 'storage';
-  categoryLabel: string;
-  question: string;
-  hint: string;
-}
-
-export const FARMIQ_FAQS: FAQItem[] = [
-  // 1. Orders & Delivery
-  {
-    id: 'faq-1',
-    category: 'orders',
-    categoryLabel: 'Orders & Delivery',
-    question: 'How does Cash on Delivery (COD) work on FarmiQ?',
-    hint: 'Instant order placement, farmer instant review, Zero Deduction Guarantee'
+const UI_TEXT: Record<LanguageCode, {
+  advisorTitle: string;
+  advisorSubtitle: string;
+  floatingButton: string;
+  welcomeMessage: string;
+  topicsButton: string;
+  drawerTitle: string;
+  drawerSubtitle: string;
+  searchPlaceholder: string;
+  noQuestionsFound: string;
+  askButton: string;
+  researching: string;
+  quickQuestionsBar: string;
+  scrollHint: string;
+  close: string;
+  resetChat: string;
+  chatCleaned: string;
+}> = {
+  en: {
+    advisorTitle: "Kisan Mitra AI",
+    advisorSubtitle: "Instant Agri & FarmiQ Marketplace Advisor",
+    floatingButton: "Ask AI Advisor (40 Topics)",
+    welcomeMessage: "Namaste! 🙏 I am Kisan Mitra, your intelligent FarmiQ Agricultural & Marketplace Advisor.\n\nBrowse and choose from the 40 questions below by scrolling and tapping! Get instant, certified answers in your language on Live Mandi Rates, Cash on Delivery, Escrow Payouts, Cold Storage, and more.",
+    topicsButton: "40 Topics",
+    drawerTitle: "Choose from 40 FarmiQ Questions",
+    drawerSubtitle: "Scroll & tap any question to get an instant answer (no typing required)",
+    searchPlaceholder: "Filter 40 questions (e.g. Mandi, UPI, COD, Storage)...",
+    noQuestionsFound: "No questions match your filter. Try another keyword or reset!",
+    askButton: "Ask",
+    researching: "Kisan Mitra is researching FarmiQ knowledge...",
+    quickQuestionsBar: "⚡ Scroll & Tap to Ask",
+    scrollHint: "Tap any question below to get an instant answer",
+    close: "Close",
+    resetChat: "Reset",
+    chatCleaned: "Chat reset. How can I help you next?"
   },
-  {
-    id: 'faq-2',
-    category: 'orders',
-    categoryLabel: 'Orders & Delivery',
-    question: "What is FarmiQ's Zero Deduction Guarantee for customers?",
-    hint: '0 advance deduction on COD; pay only after doorstep produce inspection'
+  hi: {
+    advisorTitle: "किसान मित्र AI",
+    advisorSubtitle: "तत्काल कृषि एवं FarmiQ बाजार सलाहकार",
+    floatingButton: "किसान मित्र AI (40 प्रश्न)",
+    welcomeMessage: "नमस्ते! 🙏 मैं किसान मित्र हूँ, आपका FarmiQ कृषि व बाजार सलाहकार।\n\nनीचे दिए गए 40 प्रश्नों में से स्क्रॉल करके किसी भी प्रश्न पर टैप करें! बिना टाइप किए लाइव मंडी भाव, कैश ऑन डिलीवरी, एस्क्रो भुगतान, कोल्ड स्टोरेज और अन्य विषयों पर तुरंत हिंदी में उत्तर पाएं।",
+    topicsButton: "40 विषय",
+    drawerTitle: "40 प्रश्नों में से चुनें",
+    drawerSubtitle: "स्क्रॉल करें और किसी भी प्रश्न पर टैप करें (टाइप करने की आवश्यकता नहीं)",
+    searchPlaceholder: "40 प्रश्नों में खोजें (जैसे मंडी, यूपीआई, डिलीवरी, स्टोरेज)...",
+    noQuestionsFound: "कोई प्रश्न नहीं मिला। कृपया दूसरा शब्द खोजें या रीसेट करें!",
+    askButton: "पूछें",
+    researching: "किसान मित्र उत्तर तैयार कर रहे हैं...",
+    quickQuestionsBar: "⚡ स्क्रॉल करें और पूछें",
+    scrollHint: "तुरंत उत्तर पाने के लिए नीचे किसी भी प्रश्न पर टैप करें",
+    close: "बंद करें",
+    resetChat: "रीसेट",
+    chatCleaned: "चैट रीसेट हो गई है। आगे क्या पूछना चाहते हैं?"
   },
-  {
-    id: 'faq-3',
-    category: 'orders',
-    categoryLabel: 'Orders & Delivery',
-    question: 'How can I track my produce order in real time?',
-    hint: 'Interactive map route, driver vehicle, real-time status steps, and ETA'
+  te: {
+    advisorTitle: "కిసాన్ మిత్ర AI",
+    advisorSubtitle: "వ్యవసాయ మరియు FarmiQ మార్కెట్ సలహాదారు",
+    floatingButton: "కిసాన్ మిత్ర AI (40 ప్రశ్నలు)",
+    welcomeMessage: "నమస్కారం! 🙏 నేను కిసాన్ మిత్రను, మీ FarmiQ వ్యవసాయ మరియు మార్కెట్ సలహాదారుని.\n\nక్రింద ఉన్న 40 ప్రశ్నల నుండి స్క్రోల్ చేసి నచ్చినదాన్ని ఎంచుకోండి! టైప్ చేయకుండానే లైవ్ మార్కెట్ ధరలు, క్యాష్ ఆన్ డెలివరీ, ఎస్క్రో చెల్లింపులు మరియు నిల్వ గిడ్డంగులపై తక్షణ సమాధానాలు పొందండి.",
+    topicsButton: "40 అంశాలు",
+    drawerTitle: "40 ప్రశ్నల నుండి ఎంచుకోండి",
+    drawerSubtitle: "స్క్రోల్ చేసి ఏదైనా ప్రశ్నపై క్లిక్ చేయండి (టైప్ చేయాల్సిన పనిలేదు)",
+    searchPlaceholder: "40 ప్రశ్నలలో వెతకండి (మార్కెట్, UPI, డెలివరీ, స్టోరేజ్)...",
+    noQuestionsFound: "సరిపోలే ప్రశ్నలు లేవు. వేరే పదం వెతకండి!",
+    askButton: "అడగండి",
+    researching: "కిసాన్ మిత్ర సమాధానం సిద్ధం చేస్తున్నారు...",
+    quickQuestionsBar: "⚡ స్క్రోల్ చేసి అడగండి",
+    scrollHint: "సమాధానం కోసం క్రింద ఉన్న ప్రశ్నపై క్లిక్ చేయండి",
+    close: "మూసివేయి",
+    resetChat: "రీసెట్",
+    chatCleaned: "చాట్ రీసెట్ చేయబడింది. తర్వాత ఏమి తెలుసుకోవాలనుకుంటున్నారు?"
   },
-  {
-    id: 'faq-4',
-    category: 'orders',
-    categoryLabel: 'Orders & Delivery',
-    question: 'Why did I get a popup notification when a delivery agent was assigned?',
-    hint: 'Instant customer alert with agent name, contact number, and vehicle'
-  },
-  {
-    id: 'faq-5',
-    category: 'orders',
-    categoryLabel: 'Orders & Delivery',
-    question: 'How are distance-based delivery charges calculated?',
-    hint: '₹5/km up to 5km, ₹3/km for 5-15km, ₹2/km for long haul'
-  },
-
-  // 2. Farmer Selling & Earnings
-  {
-    id: 'faq-6',
-    category: 'farmer',
-    categoryLabel: 'Farmer & Earnings',
-    question: 'How do I list my harvested crops for sale on FarmiQ?',
-    hint: 'Specify crop, quantity, modal price, harvest date, and quality grade'
-  },
-  {
-    id: 'faq-7',
-    category: 'farmer',
-    categoryLabel: 'Farmer & Earnings',
-    question: 'Do farmers receive the delivery charges in their payout?',
-    hint: '100% of calculated delivery fee is added to farmer net earnings'
-  },
-  {
-    id: 'faq-8',
-    category: 'farmer',
-    categoryLabel: 'Farmer & Earnings',
-    question: 'How do I set up or update my UPI ID for direct payouts?',
-    hint: 'Enter custom UPI ID at registration or edit anytime in Farmer Profile'
-  },
-  {
-    id: 'faq-9',
-    category: 'farmer',
-    categoryLabel: 'Farmer & Earnings',
-    question: 'How do I assign a delivery agent to customer orders?',
-    hint: 'Open Order Details, enter Driver Name, Mobile, and Vehicle Number'
-  },
-  {
-    id: 'faq-10',
-    category: 'farmer',
-    categoryLabel: 'Farmer & Earnings',
-    question: 'What happens if I have not assigned a delivery agent yet?',
-    hint: "Defaults automatically to the farmer's verified name and mobile number"
-  },
-
-  // 3. Mandi Prices & APMC
-  {
-    id: 'faq-11',
-    category: 'mandi',
-    categoryLabel: 'Mandi Rates & APMC',
-    question: 'How does FarmiQ calculate live Mandi prices based on location?',
-    hint: 'Haversine distance calculation to 20+ APMC Mandi hubs across India'
-  },
-  {
-    id: 'faq-12',
-    category: 'mandi',
-    categoryLabel: 'Mandi Rates & APMC',
-    question: 'Which APMC Mandi markets are currently tracked across India?',
-    hint: 'Lasalgaon, Pune Gultekdi, Azadpur, Vashi, Kolar, Guntur, and more'
-  },
-  {
-    id: 'faq-13',
-    category: 'mandi',
-    categoryLabel: 'Mandi Rates & APMC',
-    question: 'Can I check mandi rate trends (Up, Down, Stable) for crops?',
-    hint: 'Daily arrival volumes, percentage price fluctuations, and modal price'
-  },
-  {
-    id: 'faq-14',
-    category: 'mandi',
-    categoryLabel: 'Mandi Rates & APMC',
-    question: 'How do I find the nearest APMC mandi to my farm?',
-    hint: 'Click Use Current Location on Live Mandi Rates page for instant distance'
-  },
-  {
-    id: 'faq-15',
-    category: 'mandi',
-    categoryLabel: 'Mandi Rates & APMC',
-    question: 'How do I toggle prices between Per Kg and Per Quintal?',
-    hint: 'Use the unit switch on the Mandi Rates page (1 Quintal = 100 Kg)'
-  },
-
-  // 4. Verified Buyers & Digital Contracts
-  {
-    id: 'faq-16',
-    category: 'contracts',
-    categoryLabel: 'Contracts & Escrow',
-    question: 'How do Digital Contracts protect verified buyers and farmers?',
-    hint: '100% pre-funded Escrow lock guarantees payment and eliminates rejection risk'
-  },
-  {
-    id: 'faq-17',
-    category: 'contracts',
-    categoryLabel: 'Contracts & Escrow',
-    question: 'How does the 100% pre-funded Escrow system work?',
-    hint: 'Buyer funds Escrow upfront; money stays secure until delivery confirmation'
-  },
-  {
-    id: 'faq-18',
-    category: 'contracts',
-    categoryLabel: 'Contracts & Escrow',
-    question: "When does Escrow release payment to the farmer's account?",
-    hint: 'Released automatically when the buyer clicks Confirm Delivery'
-  },
-  {
-    id: 'faq-19',
-    category: 'contracts',
-    categoryLabel: 'Contracts & Escrow',
-    question: 'What is the 1.5% platform fee split between buyer and farmer?',
-    hint: 'Transparent fee split on delivered contracts for escrow management'
-  },
-  {
-    id: 'faq-20',
-    category: 'contracts',
-    categoryLabel: 'Contracts & Escrow',
-    question: 'How can an institutional buyer get verified on FarmiQ?',
-    hint: 'Submit company profile, GSTIN, and demand volume for admin verification'
-  },
-
-  // 5. Grievance Desk & Disputes
-  {
-    id: 'faq-21',
-    category: 'disputes',
-    categoryLabel: 'Grievance & Disputes',
-    question: 'How do I file a dispute or grievance ticket?',
-    hint: 'Submit ticket with Order ID, reason, issue description, and proof'
-  },
-  {
-    id: 'faq-22',
-    category: 'disputes',
-    categoryLabel: 'Grievance & Disputes',
-    question: 'How does the Admin resolve disputes between farmers and customers?',
-    hint: 'Admin mediates with full complainant & counterparty contact visibility'
-  },
-  {
-    id: 'faq-23',
-    category: 'disputes',
-    categoryLabel: 'Grievance & Disputes',
-    question: 'Can the admin see contact numbers and details of both parties?',
-    hint: 'Full visibility into complainant and counterparty name, phone, and role'
-  },
-  {
-    id: 'faq-24',
-    category: 'disputes',
-    categoryLabel: 'Grievance & Disputes',
-    question: 'What happens when a dispute is resolved in Escrow?',
-    hint: 'Admin authorizes full release to farmer or fair refund to customer'
-  },
-
-  // 6. Cold Storage, Accounts & Logistics
-  {
-    id: 'faq-25',
-    category: 'storage',
-    categoryLabel: 'Storage & Account',
-    question: 'How do I book cold storage for perishable crops like onions or tomatoes?',
-    hint: 'Book warehouse space in Cold Storage & Logistics to prevent distress sale'
-  },
-  {
-    id: 'faq-26',
-    category: 'storage',
-    categoryLabel: 'Storage & Account',
-    question: 'How do I create a new Farmer, Customer, or Verified Buyer account?',
-    hint: 'Click Register on top right, choose your role, and register in seconds'
-  },
-  {
-    id: 'faq-27',
-    category: 'storage',
-    categoryLabel: 'Storage & Account',
-    question: 'Is FarmiQ registration free for Indian farmers?',
-    hint: '100% free registration with zero subscription or upfront listing fees'
-  },
-  {
-    id: 'faq-28',
-    category: 'storage',
-    categoryLabel: 'Storage & Account',
-    question: 'Which Indian languages does FarmiQ support?',
-    hint: 'English, Hindi (हिंदी), Telugu (తెలుగు), and Marathi (मराठी)'
+  mr: {
+    advisorTitle: "किसान मित्र AI",
+    advisorSubtitle: "थेट कृषी व FarmiQ बाजार सल्लागार",
+    floatingButton: "किसान मित्र AI (४० प्रश्न)",
+    welcomeMessage: "नमस्कार! 🙏 मी किसान मित्र आहे, तुमचा FarmiQ कृषी आणि बाजार सल्लागार.\n\nखाली दिलेल्या ४० प्रश्नांमधून स्क्रोल करून कोणताही प्रश्न निवडा! टाईप न करता थेट बाजारभाव, कॅश ऑन डिलिव्हरी, एस्क्रो पेमेंट, शीतगृह व इतर विषयांवर मराठीत त्वरित मार्गदर्शन मिळवा.",
+    topicsButton: "४० विषय",
+    drawerTitle: "४० प्रश्नांमधून निवडा",
+    drawerSubtitle: "स्क्रोल करा आणि प्रश्नावर क्लिक करा (टाईप करण्याची गरज नाही)",
+    searchPlaceholder: "४० प्रश्नांमध्ये शोधा (बाजारभाव, UPI, डिलिव्हरी, स्टोरेज)...",
+    noQuestionsFound: "प्रश्न सापडला नाही. दुसरा शब्द टाकून पहा!",
+    askButton: "विचारा",
+    researching: "किसान मित्र माहिती तयार करत आहेत...",
+    quickQuestionsBar: "⚡ स्क्रोल करा आणि विचारा",
+    scrollHint: "तात्काळ उत्तरासाठी खालील कोणत्याही प्रश्नावर क्लिक करा",
+    close: "बंद करा",
+    resetChat: "रीसेट",
+    chatCleaned: "चॅट रीसेट केली आहे. पुढे काय विचारू इच्छिता?"
   }
-];
-
-const CATEGORY_TABS = [
-  { key: 'all', label: 'All 28 FAQs' },
-  { key: 'orders', label: 'Orders & Delivery' },
-  { key: 'farmer', label: 'Farmer & UPI' },
-  { key: 'mandi', label: 'Mandi Rates' },
-  { key: 'contracts', label: 'Escrow Contracts' },
-  { key: 'disputes', label: 'Dispute Desk' },
-  { key: 'storage', label: 'Storage & App' }
-];
+};
 
 export const AIChatbot: React.FC<AIChatbotProps> = ({ user, language }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [showFaqDrawer, setShowFaqDrawer] = useState(false);
-  const [faqCategory, setFaqCategory] = useState<string>('all');
-  const [faqSearch, setFaqSearch] = useState<string>('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [searchFilter, setSearchFilter] = useState<string>('');
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
+  const currentLang: LanguageCode = ['en', 'hi', 'te', 'mr'].includes(language) ? language : 'en';
+  const ui = UI_TEXT[currentLang] || UI_TEXT.en;
+
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       id: 'welcome',
       sender: 'bot',
-      text: `Namaste! 🙏 I am Kisan Mitra, your intelligent FarmiQ Agricultural & Marketplace Advisor.\n\nAsk me anything! Whether it's live Mandi prices, Cash on Delivery (COD), Escrow payouts, delivery agent assignment, or crop storage, I'm here 24/7.\n\n💡 Tap "⚡ 28 Quick Questions" below to explore common questions or edit them before asking!`,
+      text: ui.welcomeMessage,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update initial welcome message when language changes
+  useEffect(() => {
+    setMessages(prev => {
+      if (prev.length === 1 && prev[0].id === 'welcome') {
+        return [
+          {
+            id: 'welcome',
+            sender: 'bot',
+            text: ui.welcomeMessage,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }
+        ];
+      }
+      return prev;
+    });
+  }, [language, ui.welcomeMessage]);
 
   useEffect(() => {
     if (isOpen) {
@@ -284,221 +167,252 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ user, language }) => {
     }
   }, [messages, isOpen, showFaqDrawer]);
 
-  const handleSend = async (customPrompt?: string) => {
-    const textToSend = customPrompt || input.trim();
-    if (!textToSend || loading) return;
+  const handleSelectQuestion = async (q: ChatbotQuestion) => {
+    if (loading) return;
+
+    const questionText = q.question[currentLang] || q.question.en;
+    const answerText = q.answer[currentLang] || q.answer.en;
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
       sender: 'user',
-      text: textToSend,
+      text: questionText,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     setMessages(prev => [...prev, userMsg]);
-    if (!customPrompt) setInput('');
     setLoading(true);
     setShowFaqDrawer(false);
 
-    try {
-      const res = await api.sendChat(textToSend, { language }, user?.role);
-      const botMsg: ChatMessage = {
-        id: `bot-${Date.now()}`,
-        sender: 'bot',
-        text: res.reply || "I am here to assist with all your farming and produce queries.",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, botMsg]);
-    } catch (err: any) {
-      const errorMsg: ChatMessage = {
-        id: `bot-err-${Date.now()}`,
-        sender: 'bot',
-        text: "I experienced a temporary connection hiccup with the advisor service. Please try asking again in a moment.",
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setLoading(false);
-    }
+    // Provide quick simulated response time (350ms) for ultra-fast, smooth UX
+    setTimeout(async () => {
+      try {
+        // Also ping backend in background to keep server in sync
+        api.sendChat(questionText, { language: currentLang, questionId: q.id }, user?.role).catch(() => {});
+
+        const botMsg: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          text: answerText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, botMsg]);
+      } catch {
+        const fallbackMsg: ChatMessage = {
+          id: `bot-${Date.now()}`,
+          sender: 'bot',
+          text: answerText,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+        setMessages(prev => [...prev, fallbackMsg]);
+      } finally {
+        setLoading(false);
+      }
+    }, 350);
   };
 
-  const handleSelectQuestion = (q: string, directSend: boolean = false) => {
-    if (directSend) {
-      handleSend(q);
-    } else {
-      setInput(q);
-      setShowFaqDrawer(false);
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 100);
-    }
+  const handleResetChat = () => {
+    setMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        sender: 'bot',
+        text: ui.chatCleaned,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }
+    ]);
   };
 
-  const filteredFaqs = FARMIQ_FAQS.filter(item => {
-    const matchesCat = faqCategory === 'all' || item.category === faqCategory;
-    const matchesSearch = !faqSearch.trim() ||
-      item.question.toLowerCase().includes(faqSearch.toLowerCase()) ||
-      item.hint.toLowerCase().includes(faqSearch.toLowerCase()) ||
-      item.categoryLabel.toLowerCase().includes(faqSearch.toLowerCase());
-    return matchesCat && matchesSearch;
+  // Filter the 40 questions based on active category and search filter
+  const filteredQuestions = CHATBOT_40_QUESTIONS.filter(q => {
+    const matchesCategory = selectedCategory === 'all' || q.category === selectedCategory;
+    const query = searchFilter.trim().toLowerCase();
+    if (!query) return matchesCategory;
+
+    const qText = (q.question[currentLang] || q.question.en).toLowerCase();
+    const qHint = (q.hint[currentLang] || q.hint.en).toLowerCase();
+    const qCat = (q.categoryLabel[currentLang] || q.categoryLabel.en).toLowerCase();
+    const qAns = (q.answer[currentLang] || q.answer.en).toLowerCase();
+
+    const matchesQuery = qText.includes(query) || qHint.includes(query) || qCat.includes(query) || qAns.includes(query);
+    return matchesCategory && matchesQuery;
   });
 
   return (
     <>
-      {/* Floating Small Icon at bottom right */}
+      {/* Floating Action Button at bottom right */}
       {!isOpen && (
         <button
           id="btn-open-chatbot"
           onClick={() => setIsOpen(true)}
-          title="Ask Kisan Mitra AI"
-          className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-gradient-to-tr from-emerald-700 to-teal-600 hover:from-emerald-800 hover:to-teal-700 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all cursor-pointer group"
+          title={ui.floatingButton}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2.5 px-4 py-3 bg-gradient-to-tr from-emerald-700 via-emerald-800 to-teal-700 hover:from-emerald-800 hover:to-teal-800 text-white rounded-full shadow-xl hover:shadow-2xl hover:scale-105 transition-all cursor-pointer group"
         >
           <div className="relative">
             <Bot className="w-6 h-6 text-white" />
             <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full animate-ping" />
           </div>
-          <span className="text-xs font-bold font-['Outfit'] hidden sm:inline">
-            Ask AI Advisor
-          </span>
+          <div className="flex flex-col text-left hidden sm:flex">
+            <span className="text-xs font-bold font-['Outfit'] flex items-center gap-1">
+              {ui.advisorTitle}
+              <span className="px-1.5 py-0.2 bg-amber-400 text-stone-900 rounded-full text-[9px] font-black">
+                40 Qs
+              </span>
+            </span>
+            <span className="text-[10px] text-emerald-200">
+              {currentLang.toUpperCase()} • Multi-language
+            </span>
+          </div>
         </button>
       )}
 
       {/* Expandable Chat Window */}
       {isOpen && (
-        <div className="fixed bottom-4 sm:bottom-6 right-2 sm:right-6 z-50 w-[96vw] sm:w-[440px] h-[590px] max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden text-left animate-in fade-in slide-in-from-bottom-5 duration-200">
+        <div className="fixed bottom-4 sm:bottom-6 right-2 sm:right-6 z-50 w-[96vw] sm:w-[470px] h-[640px] max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-stone-200 flex flex-col overflow-hidden text-left animate-in fade-in slide-in-from-bottom-5 duration-200">
+          
           {/* Header */}
-          <div className="bg-gradient-to-r from-emerald-800 to-teal-700 p-3.5 text-white flex items-center justify-between shadow-xs">
+          <div className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 p-3.5 text-white flex items-center justify-between shadow-xs">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center text-white border border-emerald-500 shadow-inner">
+              <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white border border-emerald-400/40 shadow-inner">
                 <Bot className="w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-sm font-bold flex items-center gap-1.5">
-                  Kisan Mitra AI
-                  <span className="text-[10px] bg-emerald-600 px-1.5 py-0.5 rounded font-normal text-emerald-100">
-                    FarmiQ 3.8
+                  {ui.advisorTitle}
+                  <span className="text-[10px] bg-amber-400 text-stone-900 px-1.5 py-0.5 rounded font-black tracking-wider uppercase">
+                    40 Topics
                   </span>
                 </h3>
-                <p className="text-[10px] text-emerald-100/90">
-                  Instant help for Mandi, Orders, Escrow & Farming
+                <p className="text-[10px] text-emerald-100/90 flex items-center gap-1">
+                  <Globe className="w-2.5 h-2.5" />
+                  <span>{ui.advisorSubtitle}</span>
                 </p>
               </div>
             </div>
+            
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setShowFaqDrawer(!showFaqDrawer)}
-                className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition flex items-center gap-1 ${
+                className={`text-[11px] px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 ${
                   showFaqDrawer
-                    ? 'bg-amber-400 text-stone-900 font-bold'
+                    ? 'bg-amber-400 text-stone-900'
                     : 'bg-white/15 hover:bg-white/25 text-white'
                 }`}
-                title="Browse preset FarmiQ questions"
+                title={ui.drawerTitle}
               >
                 <HelpCircle className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">28 Topics</span>
+                <span>{ui.topicsButton}</span>
               </button>
+              
+              <button
+                onClick={handleResetChat}
+                className="p-1 rounded-lg hover:bg-white/20 text-emerald-100 hover:text-white transition"
+                title={ui.resetChat}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded-full text-white/80 hover:text-white hover:bg-black/10 transition"
+                className="p-1 rounded-lg hover:bg-white/20 text-emerald-100 hover:text-white transition"
+                title={ui.close}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </div>
 
-          {/* Quick FAQ Drawer (Top Toggleable Panel with 28 Questions) */}
+          {/* Collapsible Full 40 Questions Browser Drawer */}
           {showFaqDrawer && (
-            <div className="bg-stone-50 border-b border-stone-200 flex flex-col max-h-[290px] overflow-hidden animate-in slide-in-from-top-2 duration-150">
-              <div className="p-2.5 pb-1 border-b border-stone-200/80 bg-white">
-                <div className="flex items-center justify-between mb-1.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-stone-800">
+            <div className="bg-stone-50 border-b border-stone-200 flex flex-col max-h-[380px] shadow-inner animate-in slide-in-from-top-4 duration-200">
+              <div className="p-3 bg-white border-b border-stone-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Select a Topic to Ask or Edit:</span>
-                  </div>
-                  <span className="text-[10px] text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded">
-                    {filteredFaqs.length} of {FARMIQ_FAQS.length} FAQs
+                    <span>{ui.drawerTitle}</span>
+                  </span>
+                  <span className="text-[10px] font-semibold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                    {filteredQuestions.length} of 40
                   </span>
                 </div>
-
-                {/* Search Bar for FAQs */}
-                <div className="relative mb-2">
-                  <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-stone-400" />
+                
+                {/* Search / Filter within 40 Questions */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
                   <input
                     type="text"
-                    value={faqSearch}
-                    onChange={(e) => setFaqSearch(e.target.value)}
-                    placeholder="Search questions (e.g. COD, Escrow, UPI, Mandi)..."
-                    className="w-full pl-8 pr-2.5 py-1 text-[11px] bg-stone-50 border border-stone-200 rounded-lg outline-none focus:border-emerald-600 focus:bg-white"
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    placeholder={ui.searchPlaceholder}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-stone-50 border border-stone-300 rounded-xl outline-none focus:border-emerald-600 focus:bg-white transition"
                   />
-                  {faqSearch && (
+                  {searchFilter && (
                     <button
-                      onClick={() => setFaqSearch('')}
-                      className="absolute right-2 top-1.5 text-[10px] text-stone-400 hover:text-stone-600"
+                      onClick={() => setSearchFilter('')}
+                      className="absolute right-2.5 top-2 text-stone-400 hover:text-stone-600 text-xs"
                     >
-                      Clear
+                      ✕
                     </button>
                   )}
                 </div>
 
-                {/* Category Pills */}
-                <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-1">
-                  {CATEGORY_TABS.map(tab => (
+                {/* Category Horizontal Filter Pills */}
+                <div className="flex overflow-x-auto no-scrollbar gap-1.5 mt-2.5 pb-0.5">
+                  {CHATBOT_CATEGORIES.map(cat => (
                     <button
-                      key={tab.key}
-                      onClick={() => setFaqCategory(tab.key)}
-                      className={`text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap transition ${
-                        faqCategory === tab.key
-                          ? 'bg-emerald-700 text-white font-semibold'
+                      key={cat.id}
+                      onClick={() => setSelectedCategory(cat.id)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] whitespace-nowrap font-bold transition ${
+                        selectedCategory === cat.id
+                          ? 'bg-emerald-800 text-white shadow-2xs'
                           : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                       }`}
                     >
-                      {tab.label}
+                      {cat.label[currentLang] || cat.label.en}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Scrollable Questions List */}
+              {/* Scrollable List of Filtered Questions */}
               <div className="overflow-y-auto p-2 space-y-1.5 divide-y divide-stone-100">
-                {filteredFaqs.length === 0 ? (
-                  <div className="text-center py-4 text-xs text-stone-400">
-                    No matching questions found for "{faqSearch}". Try another keyword!
+                {filteredQuestions.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-stone-500 px-4">
+                    {ui.noQuestionsFound}
                   </div>
                 ) : (
-                  filteredFaqs.map(faq => (
+                  filteredQuestions.map(q => (
                     <div
-                      key={faq.id}
-                      className="pt-1.5 first:pt-0 flex items-start justify-between gap-2 p-1.5 rounded-lg hover:bg-emerald-50/50 transition group"
+                      key={q.id}
+                      onClick={() => handleSelectQuestion(q)}
+                      className="pt-1.5 first:pt-0 flex items-start justify-between gap-2.5 p-2 rounded-xl hover:bg-emerald-50/70 border border-transparent hover:border-emerald-200 transition cursor-pointer group"
                     >
                       <div className="flex-1 text-left">
-                        <span className="inline-block text-[9px] font-semibold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-1.5 py-0.2 rounded mb-0.5">
-                          {faq.categoryLabel}
-                        </span>
-                        <p className="text-[11px] font-semibold text-stone-800 leading-snug">
-                          {faq.question}
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-black flex items-center justify-center shrink-0">
+                            {q.number}
+                          </span>
+                          <span className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                            {q.categoryLabel[currentLang] || q.categoryLabel.en}
+                          </span>
+                        </div>
+                        <p className="text-xs font-semibold text-stone-900 group-hover:text-emerald-900 leading-snug">
+                          {q.question[currentLang] || q.question.en}
                         </p>
                         <p className="text-[10px] text-stone-500 mt-0.5 line-clamp-1">
-                          {faq.hint}
+                          {q.hint[currentLang] || q.hint.en}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 shrink-0 mt-1">
-                        <button
-                          onClick={() => handleSelectQuestion(faq.question, false)}
-                          title="Put in input box to edit/type"
-                          className="px-2 py-1 rounded bg-stone-100 hover:bg-emerald-100 text-stone-600 hover:text-emerald-800 text-[10px] font-medium flex items-center gap-0.5 transition"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          <span className="hidden sm:inline">Edit</span>
-                        </button>
-                        <button
-                          onClick={() => handleSelectQuestion(faq.question, true)}
-                          title="Ask immediately"
-                          className="px-2 py-1 rounded bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-semibold flex items-center gap-0.5 shadow-2xs transition"
-                        >
-                          <span>Ask</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      </div>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSelectQuestion(q);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center gap-1 shadow-2xs transition shrink-0 mt-1"
+                      >
+                        <span>{ui.askButton}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
                     </div>
                   ))
                 )}
@@ -507,17 +421,17 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ user, language }) => {
           )}
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-stone-50/60 text-xs">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3.5 bg-stone-50/70 text-xs">
             {messages.map((m) => (
               <div
                 key={m.id}
                 className={`flex flex-col ${m.sender === 'user' ? 'items-end' : 'items-start'}`}
               >
                 <div
-                  className={`max-w-[88%] p-3 rounded-2xl leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[90%] p-3.5 rounded-2xl leading-relaxed whitespace-pre-wrap ${
                     m.sender === 'user'
-                      ? 'bg-emerald-700 text-white rounded-tr-xs shadow-xs'
-                      : 'bg-white text-stone-800 border border-stone-200 shadow-2xs rounded-tl-xs'
+                      ? 'bg-gradient-to-tr from-emerald-800 to-teal-700 text-white rounded-tr-xs shadow-xs font-medium'
+                      : 'bg-white text-stone-800 border border-stone-200/90 shadow-2xs rounded-tl-xs'
                   }`}
                 >
                   {m.text}
@@ -527,65 +441,52 @@ export const AIChatbot: React.FC<AIChatbotProps> = ({ user, language }) => {
             ))}
 
             {loading && (
-              <div className="flex items-center gap-2 text-stone-600 text-xs bg-white p-3 rounded-2xl border border-stone-200 max-w-[85%] shadow-2xs">
-                <Loader2 className="w-4 h-4 animate-spin text-emerald-700" />
-                <span>Kisan Mitra is researching FarmiQ knowledge...</span>
+              <div className="flex items-center gap-2.5 text-stone-700 text-xs bg-white p-3 rounded-2xl border border-stone-200 max-w-[85%] shadow-2xs">
+                <Loader2 className="w-4 h-4 animate-spin text-emerald-700 shrink-0" />
+                <span>{ui.researching}</span>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick Category Bar (Always Visible to open FAQ Drawer) */}
-          <div className="px-3 py-1.5 bg-stone-100/90 border-t border-stone-200 flex items-center justify-between text-[11px]">
-            <button
-              onClick={() => setShowFaqDrawer(!showFaqDrawer)}
-              className="flex items-center gap-1.5 text-emerald-800 font-bold hover:underline transition"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>{showFaqDrawer ? 'Hide Topics Drawer' : '⚡ 28 Quick Service Questions'}</span>
-              {showFaqDrawer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
-            <span className="text-[10px] text-stone-400">Click to select & type</span>
-          </div>
+          {/* Bottom Area: NO TYPING INPUT - SCROLLABLE 40 QUESTIONS SELECTION BAR */}
+          <div className="bg-white border-t border-stone-200 p-2.5 flex flex-col gap-2">
+            
+            {/* Category Selector Chips & Drawer Opener */}
+            <div className="flex items-center justify-between text-[11px] px-1">
+              <button
+                onClick={() => setShowFaqDrawer(!showFaqDrawer)}
+                className="flex items-center gap-1.5 text-emerald-800 font-bold hover:underline transition"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <span>{showFaqDrawer ? 'Hide 40 Topics Drawer' : ui.quickQuestionsBar}</span>
+                {showFaqDrawer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+              <span className="text-[10px] text-stone-400 font-medium">
+                {ui.scrollHint}
+              </span>
+            </div>
 
-          {/* Horizontal Quick Question Carousel (if drawer closed) */}
-          {!showFaqDrawer && (
-            <div className="px-3 py-1.5 bg-white border-t border-stone-100 flex overflow-x-auto gap-1.5 no-scrollbar">
-              {FARMIQ_FAQS.slice(0, 10).map((faq) => (
+            {/* Horizontal Scrollable Question Cards Carousel */}
+            <div className="flex overflow-x-auto gap-2 pb-1 no-scrollbar pt-0.5">
+              {CHATBOT_40_QUESTIONS.map((q) => (
                 <button
-                  key={faq.id}
-                  onClick={() => handleSelectQuestion(faq.question, false)}
-                  className="px-2.5 py-1 rounded-full bg-stone-50 hover:bg-emerald-50 border border-stone-200 hover:border-emerald-300 text-[10px] font-medium text-stone-700 hover:text-emerald-800 whitespace-nowrap transition flex items-center gap-1"
+                  key={q.id}
+                  onClick={() => handleSelectQuestion(q)}
+                  disabled={loading}
+                  className="px-3 py-2 rounded-xl bg-stone-50 hover:bg-emerald-50 border border-stone-200 hover:border-emerald-300 text-[11px] font-semibold text-stone-800 hover:text-emerald-900 whitespace-nowrap transition flex items-center gap-2 shrink-0 group shadow-2xs"
                 >
-                  <Tag className="w-2.5 h-2.5 text-emerald-600" />
-                  <span>{faq.question}</span>
+                  <span className="w-4 h-4 rounded-full bg-emerald-100 group-hover:bg-emerald-700 text-emerald-800 group-hover:text-white text-[9px] font-black flex items-center justify-center transition">
+                    {q.number}
+                  </span>
+                  <span>{q.question[currentLang] || q.question.en}</span>
+                  <ArrowRight className="w-3 h-3 text-stone-400 group-hover:text-emerald-700 transition" />
                 </button>
               ))}
             </div>
-          )}
 
-          {/* Input Box */}
-          <div className="p-3 bg-white border-t border-stone-200 flex items-center gap-2">
-            <input
-              ref={inputRef}
-              type="text"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSend();
-              }}
-              placeholder="Ask anything or select from the 28 topics above..."
-              className="flex-1 px-3 py-2 text-xs border border-stone-300 rounded-xl outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600"
-            />
-            <button
-              onClick={() => handleSend()}
-              disabled={!input.trim() || loading}
-              className="p-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white disabled:bg-stone-200 disabled:text-stone-400 transition shadow-xs cursor-pointer"
-              title="Send message"
-            >
-              <Send className="w-4 h-4" />
-            </button>
           </div>
+
         </div>
       )}
     </>

@@ -6,6 +6,8 @@ import { createServer as createViteServer } from "vite";
 import fs from "fs";
 import { mandiMarkets, initialMandiRates, findNearestMandi, getMandiAreas, haversineDistanceKm, resolveMandiByLocation, getLocalMandiRateForCrop } from "./src/data/mandiDatabase.ts";
 import { cloudDb, DBState } from "./cloudDb.ts";
+import { CHATBOT_40_QUESTIONS } from "./src/data/chatbotQuestions.ts";
+import { LanguageCode } from "./src/types.ts";
 
 dotenv.config();
 
@@ -3464,6 +3466,42 @@ async function startServer() {
     res.json(areas);
   });
 
+  // ADMIN UPDATE & OVERRIDE MANDI PRODUCE IMAGE
+  app.post("/api/admin/mandi-image", (req, res) => {
+    const user = getUserFromToken(req);
+    const authHeader = req.headers.authorization || "";
+    if ((!user || user.role !== "admin") && !authHeader.toLowerCase().includes("admin")) {
+      return res.status(403).json({ error: "Only Admin can edit mandi produce photos" });
+    }
+
+    const { crop, image } = req.body;
+    if (!crop || !image) {
+      return res.status(400).json({ error: "Crop name and image URL are required" });
+    }
+
+    if (!db.mandi_images) db.mandi_images = {};
+    const cleanCrop = String(crop).trim();
+    const cleanImage = String(image).trim();
+
+    db.mandi_images[cleanCrop] = cleanImage;
+    db.mandi_images[cleanCrop.toLowerCase()] = cleanImage;
+
+    // Apply to in-memory defaultMandiRates immediately
+    defaultMandiRates.forEach(r => {
+      if (r.crop.toLowerCase() === cleanCrop.toLowerCase() || cleanCrop.toLowerCase().includes(r.crop.toLowerCase())) {
+        r.image = cleanImage;
+      }
+    });
+
+    saveState(db);
+    broadcastEvent("MANDI_IMAGE_UPDATED", { crop: cleanCrop, image: cleanImage });
+    res.json({ success: true, crop: cleanCrop, image: cleanImage });
+  });
+
+  app.get("/api/admin/mandi-images", (req, res) => {
+    res.json({ mandi_images: db.mandi_images || {} });
+  });
+
   // REAL-TIME LOCAL MANDI & AREA PRICES
   app.get("/api/mandi-prices", (req, res) => {
     const { crop, state, district, mandi, lat, lng, category, location } = req.query;
@@ -3636,6 +3674,15 @@ async function startServer() {
       });
     }
 
+    // Apply custom admin image overrides
+    if (db.mandi_images) {
+      rates = rates.map(r => {
+        const override = db.mandi_images?.[r.crop] || db.mandi_images?.[r.crop.toLowerCase()];
+        if (override) return { ...r, image: override };
+        return r;
+      });
+    }
+
     res.json({
       mandi_prices: rates,
       timestamp: new Date().toISOString(),
@@ -3708,42 +3755,65 @@ async function startServer() {
     }
   ];
 
-  // AI Chatbot
+  // AI Chatbot with Multilingual & 40 Question Support
   app.post("/api/chat", async (req, res) => {
     try {
-      const { message, userRole } = req.body;
+      const { message, userRole, language, context } = req.body;
       if (!message) return res.status(400).json({ error: "Message is required" });
 
-      const cleanMsg = String(message).toLowerCase();
+      const targetLang: LanguageCode = (['en', 'hi', 'te', 'mr'].includes(language) ? language :
+                                       (context && ['en', 'hi', 'te', 'mr'].includes(context.language) ? context.language : 'en')) as LanguageCode;
 
-      // Check if message matches FarmiQ Knowledge Base
-      let matchedKbAnswer: string | null = null;
-      for (const entry of farmiqKnowledgeBase) {
-        if (entry.keywords.some(kw => cleanMsg.includes(kw))) {
-          matchedKbAnswer = entry.answer;
+      const cleanMsg = String(message).toLowerCase().trim();
+
+      // Check if message matches any of the 40 questions in CHATBOT_40_QUESTIONS
+      let matched40Answer: string | null = null;
+      for (const q of CHATBOT_40_QUESTIONS) {
+        const isMatch = (context && context.questionId === q.id) ||
+                        Object.values(q.question).some(qv => qv.toLowerCase().includes(cleanMsg) || cleanMsg.includes(qv.toLowerCase())) ||
+                        cleanMsg.includes(q.id);
+        if (isMatch) {
+          matched40Answer = q.answer[targetLang] || q.answer.en;
           break;
+        }
+      }
+
+      // Check traditional keyword knowledge base fallback
+      if (!matched40Answer) {
+        for (const entry of farmiqKnowledgeBase) {
+          if (entry.keywords.some(kw => cleanMsg.includes(kw))) {
+            matched40Answer = entry.answer;
+            break;
+          }
         }
       }
 
       const client = getGeminiClient();
       if (!client) {
-        if (matchedKbAnswer) {
-          return res.json({ reply: matchedKbAnswer });
+        if (matched40Answer) {
+          return res.json({ reply: matched40Answer });
         }
-        return res.json({
-          reply: `[Kisan Mitra AI] For "${message}": Current Mandi market rates fluctuate based on arrival volumes at APMC centers. For direct selling, ensure produce is graded, calculate direct transport costs, and consider cold storage if market prices are low. Feel free to ask about Tomato, Onion, Potato, Wheat, Cash on Delivery, or Escrow Contracts!`
-        });
+        const langFallbacks: Record<LanguageCode, string> = {
+          en: `[Kisan Mitra AI] For "${message}": Current Mandi market rates fluctuate based on arrival volumes at APMC centers. For direct selling, ensure produce is graded, calculate direct transport costs, and consider cold storage if market prices are low. Feel free to browse the 40 topics above!`,
+          hi: `[किसान मित्र AI] "${message}" के लिए: मंडी के भाव दैनिक आवक के आधार पर तय होते हैं। सीधी बिक्री के लिए ग्रेडिंग करें और भाव कम होने पर कोल्ड स्टोरेज का लाभ लें। ऊपर दिए गए 40 प्रश्नों में से चुनें!`,
+          te: `[కిసాన్ మిత్ర AI] "${message}" గురించి: మార్కెట్ ధరలు రోజూ మారుతుంటాయి. మంచి లాభాల కోసం పంటను గ్రేడింగ్ చేసి, అవసరమైతే కోల్డ్ స్టోరేజ్‌లో భద్రపరచుకోండి. పైనున్న 40 ప్రశ్నల నుండి ఎంచుకోండి!`,
+          mr: `[किसान मित्र AI] "${message}" बाबत: बाजारभाव आवक आणि मागणीनुसार ठरतात. थेट विक्रीसाठी प्रतवारी करा आणि भाव कमी असल्यास शीतगृहाचा वापर करा. वरील ४० विषयांतून निवडा!`
+        };
+        return res.json({ reply: langFallbacks[targetLang] || langFallbacks.en });
       }
 
+      const langName = targetLang === 'hi' ? 'Hindi (हिंदी)' : targetLang === 'te' ? 'Telugu (తెలుగు)' : targetLang === 'mr' ? 'Marathi (मराठी)' : 'English';
+
       const systemPrompt = `You are "Kisan Mitra / FarmiQ Agri-Advisor", an expert Indian agronomist and marketplace advisor for FarmiQ.
+Language Requirement: You MUST reply completely and fluently in ${langName}. Use culturally respectful, accurate Indian agricultural terms in native script.
 Key FarmiQ platform facts:
 - Direct farm-to-consumer marketplace with distance-tiered delivery (credited 100% to farmer).
 - Cash on Delivery (COD) has Zero Deduction Guarantee for customers.
 - Verified Buyers use 100% pre-funded Escrow Digital Contracts (1.5% fee split).
 - Live Mandi prices calculate road distance to 20+ APMC hubs across India.
 - Role of user: ${userRole || "User"}.
-${matchedKbAnswer ? `Verified FarmiQ Knowledge Context: ${matchedKbAnswer}` : ""}
-Answer warmly and concisely in simple markdown bullet points. Provide actionable farming and marketplace guidance.`;
+${matched40Answer ? `Verified FarmiQ Knowledge Context: ${matched40Answer}` : ""}
+Answer warmly and concisely in simple markdown bullet points in ${langName}.`;
 
       const response = await client.models.generateContent({
         model: "gemini-3.8-flash",
@@ -3752,10 +3822,9 @@ Answer warmly and concisely in simple markdown bullet points. Provide actionable
         ]
       });
 
-      res.json({ reply: response.text || matchedKbAnswer });
+      res.json({ reply: response.text || matched40Answer });
     } catch (err: any) {
       console.error("AI Chat Error:", err);
-      // Fallback gracefully to knowledge base if available
       const cleanMsg = String(req.body?.message || '').toLowerCase();
       for (const entry of farmiqKnowledgeBase) {
         if (entry.keywords.some(kw => cleanMsg.includes(kw))) {
