@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, Invoice } from '../types';
 import { api, setStoredUser } from '../api';
-import { translations } from '../translations';
+import { translations, tr, translateCrop, translateUnit, translateCategory } from '../translations';
 import { LiveTrackingModal } from './LiveTrackingModal';
 import { calculateAutomatedDistance, calculateAccurateRoadDistanceAsync, calculateDeliveryFee, LatLng, AutomatedDistanceResult, getGoogleMapsDirectionsUrl } from '../utils/distance';
 import { InvoiceModal } from './InvoiceModal';
@@ -482,7 +482,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             }`}
           >
             <FilePlus className="w-4 h-4 text-emerald-600" />
-            <span>Post Requirement / Demand ({requirements.filter(r => r.customer_id === user.id).length})</span>
+            <span>{tr('Post Requirement / Demand', language)} ({requirements.filter(r => r.customer_id === user.id).length})</span>
           </button>
           <button
             onClick={() => handleSwitchSubTab('disputes')}
@@ -491,14 +491,14 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
             }`}
           >
             <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>Disputes & Grievances ({disputes.length})</span>
+            <span>{tr('Disputes & Grievances', language)} ({disputes.length})</span>
           </button>
         </div>
 
         {/* Delivery banner */}
         <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200 shrink-0">
           <Truck className="w-3.5 h-3.5" />
-          <span>Direct Farm Dispatch: Low-Cost Doorstep Delivery</span>
+          <span>{tr('Direct Farm Dispatch: Low-Cost Doorstep Delivery', language)}</span>
         </div>
       </div>
 
@@ -531,7 +531,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                   }`}
                 >
-                  {cat}
+                  {cat === 'All' ? tr('All Categories', language) : tr(cat, language)}
                 </button>
               ))}
 
@@ -584,11 +584,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                         />
                         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
                           <span className="text-[10px] font-bold bg-black/60 backdrop-blur-md text-white px-2.5 py-1 rounded-full">
-                            {p.category}
+                            {translateCategory(p.category, language)}
                           </span>
                           {p.organic === 1 && (
                             <span className="text-[10px] font-bold bg-emerald-600 text-white px-2.5 py-1 rounded-full flex items-center gap-1">
-                              <Leaf className="w-3 h-3" /> Organic
+                              <Leaf className="w-3 h-3" /> {tr('Organic Only', language)}
                             </span>
                           )}
                         </div>
@@ -601,7 +601,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             </span>
                           ) : (
                             <span className="text-[10px] font-bold bg-white/95 text-stone-800 px-2.5 py-1 rounded-full shadow-xs">
-                              {p.quantity} {p.unit} left
+                              {p.quantity} {translateUnit(p.unit, language)} {tr('Available Stock', language)}
                             </span>
                           )}
                         </div>
@@ -610,15 +610,15 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                       {/* Info Body */}
                       <div className="p-5">
                         <div className="flex items-start justify-between gap-2 mb-1">
-                          <h3 className="text-lg font-bold text-stone-900">{p.name}</h3>
+                          <h3 className="text-lg font-bold text-stone-900">{translateCrop(p.name, language)}</h3>
                           <div className="text-right">
                             <span className="text-xl font-bold text-teal-800">₹{p.price}</span>
-                            <span className="text-xs text-stone-500">/{p.unit}</span>
+                            <span className="text-xs text-stone-500">/{translateUnit(p.unit, language)}</span>
                           </div>
                         </div>
 
                         <p className="text-xs text-stone-600 mb-3 font-medium">
-                          Farmer: <span className="text-stone-900 font-bold">{p.farmer_name}</span> ({p.farm_name || 'Direct Farm'})
+                          {tr('Farmer', language)}: <span className="text-stone-900 font-bold">{p.farmer_name}</span> ({p.farm_name || 'Direct Farm'})
                         </p>
 
                         {/* MANDI COMPARISON BESIDE FARMER PRICE (Requested feature) */}
@@ -626,9 +626,9 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                           <div className="flex items-center justify-between font-semibold text-amber-950">
                             <span className="flex items-center gap-1">
                               <TrendingUp className="w-3.5 h-3.5 text-amber-700" />
-                              Current Mandi Benchmark:
+                              {tr('Market Benchmark', language)}:
                             </span>
-                            <span className="font-bold text-amber-900">₹{p.market_price || 35}/{p.unit}</span>
+                            <span className="font-bold text-amber-900">₹{p.market_price || 35}/{translateUnit(p.unit, language)}</span>
                           </div>
                           {(p.mandi_name || p.location) && (
                             <p className="text-[10px] text-stone-600 mt-0.5 flex items-center gap-1">
@@ -890,7 +890,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             className="px-3 py-1.5 rounded-lg bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
                           >
                             <Truck className="w-3.5 h-3.5" />
-                            <span>📍 Track Order</span>
+                            <span>📍 {tr('Track Order', language)}</span>
                           </button>
 
                           {/* Option 2: Pay via UPI */}
@@ -902,7 +902,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                 className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs animate-pulse cursor-pointer active:scale-95"
                               >
                                 <IndianRupee className="w-3.5 h-3.5" />
-                                <span>💳 Pay via UPI</span>
+                                <span>💳 {tr('Pay via UPI', language)}</span>
                               </button>
 
                               <button
@@ -911,18 +911,18 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                                 className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
                               >
                                 <Banknote className="w-3.5 h-3.5" />
-                                <span>💵 Cash on Delivery</span>
+                                <span>💵 {tr('Cash on Delivery', language)}</span>
                               </button>
                             </>
                           ) : isPaid ? (
                             <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1">
                               <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>Paid via UPI</span>
+                              <span>{tr('Pay via UPI', language)}</span>
                             </span>
                           ) : (
                             <span className="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs flex items-center gap-1">
                               <Banknote className="w-3.5 h-3.5 text-amber-700" />
-                              <span>Cash on Delivery Selected</span>
+                              <span>{tr('Cash on Delivery', language)}</span>
                             </span>
                           )}
 
@@ -933,7 +933,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                             className="px-3 py-1.5 rounded-lg bg-white hover:bg-stone-100 text-stone-800 font-bold text-xs flex items-center gap-1.5 border border-stone-300 shadow-2xs cursor-pointer active:scale-95"
                           >
                             <FileText className="w-3.5 h-3.5 text-emerald-700" />
-                            <span>📄 View Invoice</span>
+                            <span>📄 {tr('View Invoice', language)}</span>
                           </button>
                         </div>
                       </div>
@@ -1614,7 +1614,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 {/* Choose Payment Method: UPI vs Cash on Delivery */}
                 <div className="space-y-1.5">
                   <label className="block text-xs font-bold text-stone-700">
-                    Payment Method *
+                    {tr('Payment Method', language)} *
                   </label>
                   <div className="grid grid-cols-2 gap-2.5">
                     <div
@@ -1627,7 +1627,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold flex items-center gap-1.5">
-                          📱 Online / UPI
+                          📱 {tr('UPI Instant Escrow', language)}
                         </span>
                         <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${selectedPaymentMethod === 'UPI' ? 'border-teal-700 bg-teal-700' : 'border-stone-300'}`}>
                           {selectedPaymentMethod === 'UPI' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1648,7 +1648,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     >
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-xs font-bold flex items-center gap-1.5">
-                          💵 Cash on Delivery
+                          💵 {tr('Cash on Delivery', language)}
                         </span>
                         <span className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${selectedPaymentMethod === 'COD' ? 'border-emerald-700 bg-emerald-700' : 'border-stone-300'}`}>
                           {selectedPaymentMethod === 'COD' && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1664,15 +1664,15 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                 {/* Price Breakdown */}
                 <div className="p-4 rounded-xl bg-teal-50/60 border border-teal-200/80 space-y-2 text-xs">
                   <div className="flex justify-between text-stone-700">
-                    <span>Produce Total ({orderQuantity} {selectedProduct.unit} × ₹{unitPrice}):</span>
+                    <span>{tr('Product Total', language)} ({orderQuantity} {translateUnit(selectedProduct.unit, language)} × ₹{unitPrice}):</span>
                     <span className="font-semibold">₹{productTotal}</span>
                   </div>
                   <div className="flex justify-between text-stone-700">
-                    <span>Delivery Charge ({deliveryDistanceKm} km):</span>
+                    <span>{tr('Delivery Fee', language)} ({deliveryDistanceKm} km):</span>
                     <span className="font-semibold">₹{deliveryCharge}</span>
                   </div>
                   <div className="pt-2 border-t border-teal-200 flex justify-between text-stone-900 font-bold text-sm">
-                    <span>Grand Total:</span>
+                    <span>{tr('Grand Total', language)}:</span>
                     <span className="text-teal-900 text-base">₹{grandTotal}</span>
                   </div>
                 </div>
@@ -1700,7 +1700,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     onClick={handleCloseModal}
                     className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-700 font-bold text-xs hover:bg-stone-50 transition cursor-pointer"
                   >
-                    {t.cancel || 'Cancel'}
+                    {tr('Cancel', language)}
                   </button>
                   <button
                     type="submit"
@@ -1708,11 +1708,11 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
                     className="flex-1 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs shadow-md shadow-teal-200 transition cursor-pointer flex items-center justify-center gap-1.5 disabled:bg-stone-300"
                   >
                     {placingOrder ? (
-                      <span>Placing Request...</span>
+                      <span>{tr('Placing Order...', language)}</span>
                     ) : (
                       <>
                         <CheckCircle className="w-4 h-4 text-teal-300" />
-                        <span>Confirm Order</span>
+                        <span>{tr('Confirm Direct Order', language)}</span>
                       </>
                     )}
                   </button>

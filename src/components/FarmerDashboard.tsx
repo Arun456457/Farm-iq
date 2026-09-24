@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, FPOLot, VerifiedBuyer, QualityGrade, FPOMemberFarmer, NetworkFarmer, Invoice, FPOCollective, FPOCollectiveMember } from '../types';
 import { api, setStoredUser } from '../api';
-import { translations } from '../translations';
+import { translations, tr, translateCrop, translateUnit, translateCategory } from '../translations';
 import { InvoiceModal } from './InvoiceModal';
 import { LocationPickerModal } from './LocationPickerModal';
 import { mandiMarkets } from '../data/mandiDatabase';
@@ -1159,7 +1159,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
         <div>
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-700/80 text-[11px] font-bold tracking-wider uppercase">
-              Farmer Dashboard
+              {tr('Farmer Dashboard', language)}
             </span>
             <span className="text-emerald-200 text-xs flex items-center gap-1">
               <MapPin className="w-3 h-3" /> {user.location}
@@ -1169,7 +1169,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             {user.full_name}
           </h1>
           <p className="text-emerald-100 text-xs sm:text-sm mt-0.5 font-medium">
-            Farm: {user.farm_name || 'Direct Agro Farm'} • Phone: {user.phone}
+            {tr('Farm Name / Brand', language)}: {user.farm_name || 'Direct Agro Farm'} • {tr('Phone Number', language)}: {user.phone}
           </p>
         </div>
 
@@ -1186,39 +1186,39 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 text-left">
         <div className="bg-white p-5 rounded-xl border border-stone-200/80 shadow-2xs">
-          <p className="text-xs font-semibold text-stone-500 mb-1">Active Listings</p>
+          <p className="text-xs font-semibold text-stone-500 mb-1">{tr('Active Listings', language)}</p>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-bold text-stone-900">{myProducts.length}</span>
             <Package className="w-5 h-5 text-emerald-600" />
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">Available on marketplace</p>
+          <p className="text-[11px] text-stone-500 mt-1">{tr('Available on marketplace', language)}</p>
         </div>
 
         <div className="bg-white p-5 rounded-xl border border-stone-200/80 shadow-2xs">
-          <p className="text-xs font-semibold text-stone-500 mb-1">Total Available Quantity</p>
+          <p className="text-xs font-semibold text-stone-500 mb-1">{tr('Total Available Quantity', language)}</p>
           <div className="flex items-baseline justify-between">
-            <span className="text-2xl font-bold text-stone-900">{totalAvailableQty} <span className="text-sm font-normal text-stone-500">kg</span></span>
+            <span className="text-2xl font-bold text-stone-900">{totalAvailableQty} <span className="text-sm font-normal text-stone-500">{translateUnit('kg', language)}</span></span>
             <Leaf className="w-5 h-5 text-teal-600" />
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">Ready for direct pickup</p>
+          <p className="text-[11px] text-stone-500 mt-1">{tr('Ready for direct pickup', language)}</p>
         </div>
 
         <div className="bg-white p-5 rounded-xl border border-stone-200/80 shadow-2xs">
-          <p className="text-xs font-semibold text-stone-500 mb-1">Incoming Orders</p>
+          <p className="text-xs font-semibold text-stone-500 mb-1">{tr('Incoming Orders', language)}</p>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-bold text-stone-900">{myOrders.length}</span>
             <ShoppingBag className="w-5 h-5 text-amber-600" />
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">{myOrders.filter(o => o.status === 'ORDERED').length} need acceptance</p>
+          <p className="text-[11px] text-stone-500 mt-1">{myOrders.filter(o => o.status === 'ORDERED').length} {tr('need acceptance', language)}</p>
         </div>
 
         <div className="bg-white p-5 rounded-xl border border-stone-200/80 shadow-2xs">
-          <p className="text-xs font-semibold text-stone-500 mb-1">Total Farm Revenue</p>
+          <p className="text-xs font-semibold text-stone-500 mb-1">{tr('Total Farm Revenue', language)}</p>
           <div className="flex items-baseline justify-between">
             <span className="text-2xl font-bold text-emerald-800">₹{totalEarnings}</span>
             <IndianRupee className="w-5 h-5 text-emerald-600" />
           </div>
-          <p className="text-[11px] text-emerald-600 mt-1 font-semibold">100% direct realization (Produce + Delivery fees)</p>
+          <p className="text-[11px] text-emerald-600 mt-1 font-semibold">{tr('100% direct realization (Produce + Delivery fees)', language)}</p>
         </div>
       </div>
 
@@ -1241,7 +1241,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             }`}
           >
             <Building2 className="w-4 h-4 text-teal-700" />
-            <span>FPO & Collectives ({lots.length + collectives.length})</span>
+            <span>{tr('FPO & Collectives', language)} ({lots.length + collectives.length})</span>
           </button>
           <button
             onClick={() => handleSwitchSubTab('farmer-orders')}
@@ -1259,7 +1259,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             }`}
           >
             <FilePlus className="w-4 h-4 text-emerald-600" />
-            <span>Buyer Requirements ({requirements.filter(r => r.status === 'OPEN').length} Open)</span>
+            <span>{tr('Buyer Requirements', language)} ({requirements.filter(r => r.status === 'OPEN').length} Open)</span>
           </button>
           <button
             onClick={() => handleSwitchSubTab('disputes')}
@@ -1268,7 +1268,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
             }`}
           >
             <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span>Disputes & Grievances ({disputes.length})</span>
+            <span>{tr('Disputes & Grievances', language)} ({disputes.length})</span>
           </button>
           <button
             onClick={() => handleSwitchSubTab('payment-settings')}

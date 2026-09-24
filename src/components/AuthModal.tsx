@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Sprout, ShoppingBag, Lock, Mail, Phone, MapPin, Building, Home, Shield, AlertCircle, CheckCircle, Navigation, Compass, Loader2, Sparkles, Hash, Eye, EyeOff, ArrowLeft, Copy, Key, MessageSquare, IndianRupee } from 'lucide-react';
 import { User, UserRole, LanguageCode } from '../types';
 import { api, setAuthToken, setStoredUser } from '../api';
-import { translations } from '../translations';
+import { translations, tr } from '../translations';
 import { LocationPickerModal } from './LocationPickerModal';
 
 interface AuthModalProps {
@@ -256,13 +256,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           </div>
           <h2 className="text-lg font-bold">
             {isForgotPassword
-              ? 'Password Recovery'
-              : (mode === 'login' ? 'Sign In to Your Account' : 'Join the Direct Marketplace')}
+              ? tr('Password Recovery', language)
+              : (mode === 'login' ? tr('Sign In to Your Account', language) : tr('Join the Direct Marketplace', language))}
           </h2>
           <p className="text-xs text-emerald-100/90 mt-0.5">
             {isForgotPassword
-              ? 'Retrieve your password or send alert to WhatsApp'
-              : (mode === 'login' ? 'Access your direct orders & listings' : 'Zero middlemen. Fair farm-gate realization.')}
+              ? tr('Retrieve your password or send alert to WhatsApp', language)
+              : (mode === 'login' ? tr('Access your direct orders & listings', language) : tr('Zero middlemen. Fair farm-gate realization.', language))}
           </p>
         </div>
 
@@ -299,12 +299,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               }}
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 hover:text-emerald-950 transition cursor-pointer"
             >
-              <ArrowLeft className="w-4 h-4" /> Back to Sign In
+              <ArrowLeft className="w-4 h-4" /> {tr('Back to Sign In', language)}
             </button>
 
             <div className="bg-stone-50 border border-stone-200 rounded-xl p-3.5 text-xs text-stone-600">
-              <p className="font-semibold text-stone-800 mb-1">🔍 Find & Retrieve Your Password</p>
-              <p>Enter your registered <strong>Email Address</strong> or <strong>Mobile Number</strong> below. FarmiQ will retrieve your account password and provide a direct WhatsApp / SMS alert link.</p>
+              <p className="font-semibold text-stone-800 mb-1">🔍 {tr('Find & Retrieve Your Password', language)}</p>
+              <p>{tr('Enter your registered Email Address or Mobile Number below.', language)}</p>
             </div>
 
             {forgotError && (
@@ -325,7 +325,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <form onSubmit={handleForgotPassword} className="space-y-4">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Registered Email or Phone Number *
+                    {tr('Registered Email or Phone Number', language)} *
                   </label>
                   <div className="relative">
                     <Mail className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
@@ -347,11 +347,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 >
                   {forgotLoading ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Searching Account...
+                      <Loader2 className="w-4 h-4 animate-spin" /> {tr('Searching Account...', language)}
                     </>
                   ) : (
                     <>
-                      <Key className="w-4 h-4" /> Retrieve My Password
+                      <Key className="w-4 h-4" /> {tr('Find & Retrieve Your Password', language)}
                     </>
                   )}
                 </button>
@@ -412,7 +412,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   rel="noopener noreferrer"
                   className="w-full py-2.5 px-4 rounded-xl bg-green-600 hover:bg-green-700 text-white font-bold text-xs shadow-md shadow-green-200 transition flex items-center justify-center gap-2 cursor-pointer no-underline"
                 >
-                  <MessageSquare className="w-4 h-4" /> 📲 Send Password Alert to WhatsApp / SMS
+                  <MessageSquare className="w-4 h-4" /> 📲 {tr('Send Password Alert to WhatsApp / SMS', language)}
                 </a>
 
                 {/* Pre-fill into Login Button */}
@@ -426,12 +426,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   }}
                   className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-200 transition flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  Sign In with this Password
+                  {tr('Sign In with this Password', language)}
                 </button>
 
                 {/* Inline Reset Form */}
                 <div className="pt-2 border-t border-stone-200">
-                  <div className="text-xs font-bold text-stone-700 mb-2">Want to change your password now?</div>
+                  <div className="text-xs font-bold text-stone-700 mb-2">{tr('Want to change your password now?', language)}</div>
                   <form onSubmit={handleResetPassword} className="flex gap-2">
                     <input
                       type="text"
@@ -445,7 +445,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       disabled={resetLoading}
                       className="px-3 py-1.5 bg-stone-800 hover:bg-stone-900 text-white text-xs font-bold rounded-lg transition disabled:bg-stone-400 cursor-pointer shrink-0"
                     >
-                      {resetLoading ? 'Saving...' : 'Set New'}
+                      {resetLoading ? '...' : tr('Set New', language)}
                     </button>
                   </form>
                 </div>
@@ -465,7 +465,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Role selector (if Registering) */}
           {mode === 'register' && (
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1.5">Select Your Role</label>
+              <label className="block text-xs font-bold text-stone-700 mb-1.5">{tr('Select Your Role', language)}</label>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -477,7 +477,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <Sprout className="w-4 h-4" />
                   </div>
                   <p className="text-[11px] font-bold text-center">{t.roleFarmer}</p>
-                  <p className="text-[9px] text-stone-500 text-center">Sell Direct</p>
+                  <p className="text-[9px] text-stone-500 text-center">{tr('Sell Direct', language)}</p>
                 </button>
 
                 <button
@@ -490,7 +490,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <ShoppingBag className="w-4 h-4" />
                   </div>
                   <p className="text-[11px] font-bold text-center">{t.roleCustomer}</p>
-                  <p className="text-[9px] text-stone-500 text-center">Buy Fresh</p>
+                  <p className="text-[9px] text-stone-500 text-center">{tr('Buy Fresh', language)}</p>
                 </button>
 
                 <button
@@ -502,8 +502,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   <div className={`p-1.5 rounded-lg ${role === 'buyer' ? 'bg-amber-600 text-white' : 'bg-stone-100 text-stone-600'}`}>
                     <Shield className="w-4 h-4" />
                   </div>
-                  <p className="text-[11px] font-bold text-center">Verified Buyer</p>
-                  <p className="text-[9px] text-stone-500 text-center">Admin Verified</p>
+                  <p className="text-[11px] font-bold text-center">{tr('Verified Buyer', language)}</p>
+                  <p className="text-[9px] text-stone-500 text-center">{tr('Admin Verified', language)}</p>
                 </button>
               </div>
             </div>
@@ -512,7 +512,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Full Name */}
           {mode === 'register' && (
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Full Name *</label>
+              <label className="block text-xs font-bold text-stone-700 mb-1">{tr('Full Name', language)} *</label>
               <div className="relative">
                 <input
                   type="text"
@@ -529,7 +529,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Email or Phone for Login */}
           <div>
             <label className="block text-xs font-bold text-stone-700 mb-1">
-              {mode === 'login' ? 'Email Address or Mobile Number *' : 'Email Address *'}
+              {mode === 'login' ? tr('Email Address or Mobile Number', language) : tr('Email Address', language)} *
             </label>
             <div className="relative">
               <Mail className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
@@ -547,7 +547,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Phone (Register only) */}
           {mode === 'register' && (
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Phone Number *</label>
+              <label className="block text-xs font-bold text-stone-700 mb-1">{tr('Phone Number', language)} *</label>
               <div className="relative">
                 <Phone className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
                 <input
@@ -565,7 +565,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Farm Name (Farmer only) */}
           {mode === 'register' && role === 'farmer' && (
             <div>
-              <label className="block text-xs font-bold text-stone-700 mb-1">Farm Name / Brand</label>
+              <label className="block text-xs font-bold text-stone-700 mb-1">{tr('Farm Name / Brand', language)}</label>
               <div className="relative">
                 <Building className="w-3.5 h-3.5 absolute left-3 top-3 text-stone-400" />
                 <input
@@ -584,9 +584,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {mode === 'register' && role === 'farmer' && (
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-bold text-stone-700">Farmer Bank UPI ID (Direct Payout)</label>
+                <label className="block text-xs font-bold text-stone-700">{tr('Farmer Bank UPI ID (Direct Payout)', language)}</label>
                 <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  Direct Payout
+                  {tr('Direct Payout', language)}
                 </span>
               </div>
               <div className="relative">
@@ -600,7 +600,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 />
               </div>
               <p className="text-[10px] text-stone-500 mt-1">
-                Enter your UPI ID so customer and institutional payments deposit directly to your bank account.
+                {tr('Enter your UPI ID so customer and institutional payments deposit directly to your bank account.', language)}
               </p>
             </div>
           )}
@@ -611,7 +611,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-emerald-700" />
-                  {role === 'farmer' ? 'Farm Location & Address (Map & PIN)' : 'Delivery Address & Location (Map & PIN)'}
+                  {role === 'farmer' ? tr('Farm Location & Address (Map & PIN)', language) : tr('Delivery Address & Location (Map & PIN)', language)}
                 </span>
                 {coords && (
                   <span className="text-[10px] bg-emerald-100 text-emerald-800 font-mono px-2 py-0.5 rounded-full font-semibold">
@@ -633,7 +633,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   ) : (
                     <Navigation className="w-3 h-3 text-emerald-600" />
                   )}
-                  <span>{isLocating ? 'Detecting GPS...' : 'Detect My GPS'}</span>
+                  <span>{isLocating ? tr('Detecting GPS...', language) : tr('Detect My GPS', language)}</span>
                 </button>
 
                 <button
@@ -642,7 +642,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   className="py-1.5 px-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 transition cursor-pointer shadow-xs"
                 >
                   <MapPin className="w-3 h-3" />
-                  <span>Select on Map</span>
+                  <span>{tr('Select on Map', language)}</span>
                 </button>
               </div>
 
@@ -655,7 +655,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Full Address Input */}
               <div>
                 <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                  {role === 'farmer' ? 'Farm / Pickup Address *' : 'Delivery Address (House/Plot, Street, Area) *'}
+                  {role === 'farmer' ? tr('Farm Location', language) : tr('Delivery Address', language)} *
                 </label>
                 <div className="relative">
                   <Home className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
@@ -680,7 +680,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                    Postal PIN Code *
+                    {tr('Postal PIN Code', language)} *
                   </label>
                   <div className="relative">
                     <Hash className="w-3.5 h-3.5 absolute left-3 top-2.5 text-stone-400" />
@@ -698,7 +698,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
                 <div>
                   <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                    District / Region *
+                    {tr('District / State', language)} *
                   </label>
                   <input
                     type="text"
@@ -823,7 +823,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           {/* Password */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-stone-700">Password *</label>
+              <label className="block text-xs font-bold text-stone-700">{tr('Password', language)} *</label>
               {mode === 'login' && (
                 <button
                   type="button"
@@ -837,7 +837,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   }}
                   className="text-[11px] font-semibold text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer"
                 >
-                  Forgot Password?
+                  {tr('Forgot password? Retrieve it here', language)}
                 </button>
               )}
             </div>
@@ -872,7 +872,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             disabled={loading}
             className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md shadow-emerald-200 transition disabled:bg-stone-300 cursor-pointer"
           >
-            {loading ? 'Processing...' : (mode === 'login' ? t.login : t.createAccount)}
+            {loading ? (mode === 'login' ? tr('Signing In...', language) : tr('Creating Account...', language)) : (mode === 'login' ? t.login : t.createAccount)}
           </button>
         </form>
         )}
