@@ -30,7 +30,7 @@ import 'leaflet/dist/leaflet.css';
 import { MandiRate, MandiMarket, LanguageCode, User } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
-import { haversineDistanceKm, getCropImage } from '../data/mandiDatabase';
+import { haversineDistanceKm, getCropImage, initialMandiRates, getMandiAreas } from '../data/mandiDatabase';
 
 interface LiveMandiRatesProps {
   language: LanguageCode;
@@ -57,12 +57,13 @@ export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
   const [imageError, setImageError] = useState<string | null>(null);
 
-  // Data states
-  const [mandiRates, setMandiRates] = useState<MandiRate[]>([]);
-  const [markets, setMarkets] = useState<MandiMarket[]>([]);
-  const [states, setStates] = useState<string[]>([]);
-  const [districtsByState, setDistrictsByState] = useState<Record<string, string[]>>({});
-  const [loading, setLoading] = useState(true);
+  // Synchronous pre-initialization so page renders in 0ms with NO loading spinner
+  const initialAreas = getMandiAreas();
+  const [mandiRates, setMandiRates] = useState<MandiRate[]>(() => [...initialMandiRates]);
+  const [markets, setMarkets] = useState<MandiMarket[]>(() => initialAreas.markets || []);
+  const [states, setStates] = useState<string[]>(() => initialAreas.states || []);
+  const [districtsByState, setDistrictsByState] = useState<Record<string, string[]>>(() => initialAreas.districtsByState || {});
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<string>('Just now');
 
