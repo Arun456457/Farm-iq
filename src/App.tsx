@@ -42,11 +42,12 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('landing');
   
   useEffect(() => {
-    triggerFullPageTranslation(language);
-    const timer = setTimeout(() => {
-      triggerFullPageTranslation(language);
-    }, 150);
-    return () => clearTimeout(timer);
+    if (language !== 'en') {
+      const timer = setTimeout(() => {
+        triggerFullPageTranslation(language);
+      }, 350);
+      return () => clearTimeout(timer);
+    }
   }, [language, currentTab]);
   
   // Auth modal
