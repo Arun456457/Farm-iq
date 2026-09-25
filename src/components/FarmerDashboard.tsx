@@ -7,11 +7,12 @@ import {
   Truck, ArrowRight, Users, Pencil, Search, FileText, QrCode, Navigation, SlidersHorizontal,
   MessageSquare, Banknote, UserPlus
 } from 'lucide-react';
-import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, FPOLot, VerifiedBuyer, QualityGrade, FPOMemberFarmer, NetworkFarmer, Invoice, FPOCollective, FPOCollectiveMember } from '../types';
+import { User, Product, Order, LanguageCode, CustomerRequirement, Dispute, FPOLot, VerifiedBuyer, QualityGrade, FPOMemberFarmer, NetworkFarmer, Invoice, FPOCollective, FPOCollectiveMember, DigitalContract } from '../types';
 import { api, setStoredUser } from '../api';
 import { translations, tr, translateCrop, translateUnit, translateCategory } from '../translations';
 import { InvoiceModal } from './InvoiceModal';
 import { LocationPickerModal } from './LocationPickerModal';
+import { EscrowFPOModal } from './EscrowFPOModal';
 import { mandiMarkets } from '../data/mandiDatabase';
 
 interface FarmerDashboardProps {
@@ -61,6 +62,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [lots, setLots] = useState<FPOLot[]>([]);
   const [verifiedBuyers, setVerifiedBuyers] = useState<VerifiedBuyer[]>([]);
+  const [farmerContracts, setFarmerContracts] = useState<DigitalContract[]>([]);
+  const [fpoModalContract, setFpoModalContract] = useState<DigitalContract | null>(null);
   const [selectedLotForMatch, setSelectedLotForMatch] = useState<FPOLot | null>(null);
   const [showCreateLotModal, setShowCreateLotModal] = useState(false);
   const [matchingLotId, setMatchingLotId] = useState<string | null>(null);
@@ -285,7 +288,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   const loadFarmerData = async () => {
     try {
       setError(null);
-      const [prods, orders, reqs, disps, lotsData, buyersData, networkData, collectivesData] = await Promise.all([
+      const [prods, orders, reqs, disps, lotsData, buyersData, networkData, collectivesData, contractsData] = await Promise.all([
         api.getFarmerProducts(),
         api.getFarmerOrders(),
         api.getRequirements().catch(() => []),
@@ -293,7 +296,8 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
         api.getLots().catch(() => []),
         api.getVerifiedBuyers().catch(() => []),
         api.getNetworkFarmers().catch(() => []),
-        api.getFPOCollectives().catch(() => [])
+        api.getFPOCollectives().catch(() => []),
+        api.getContracts().catch(() => [])
       ]);
       setMyProducts(prods);
       setMyOrders(orders);
@@ -303,6 +307,18 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       setVerifiedBuyers(buyersData);
       setNetworkFarmers(networkData);
       setCollectives(collectivesData);
+      setFarmerContracts(contractsData || []);
+
+      // Check for Admin Approved Escrow contracts for this farmer (Escrow FPO Modal Guarantee popup)
+      const approvedEscrowContract = (contractsData || []).find((c: any) =>
+        (c.assigned_farmer_id === user.id || !c.assigned_farmer_id) &&
+        c.admin_approval_status === 'APPROVED' &&
+        c.escrow_status === 'HELD_IN_ESCROW' &&
+        !sessionStorage.getItem('dismissed_fpo_modal_' + c.id)
+      );
+      if (approvedEscrowContract) {
+        setFpoModalContract(approvedEscrowContract);
+      }
 
       // Check for incoming COD orders awaiting farmer action
       const pendingCod = (orders || []).find((o: Order) =>
@@ -317,6 +333,17 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
       setError(err.message || 'Failed to load farmer dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDispatchContractProduce = async (contractId: string) => {
+    try {
+      await api.deliverContract(contractId);
+      sessionStorage.setItem('dismissed_fpo_modal_' + contractId, 'true');
+      setFpoModalContract(null);
+      await loadFarmerData();
+    } catch (err: any) {
+      console.error("Failed to mark contract delivered:", err);
     }
   };
 
@@ -1182,6 +1209,42 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
           <span>{t.addProduce}</span>
         </button>
       </div>
+
+      {/* Escrow FPO Guarantee Alert Banner */}
+      {farmerContracts.filter(c => c.admin_approval_status === 'APPROVED' && (c.escrow_status === 'HELD_IN_ESCROW' || c.escrow_status === 'DELIVERY_CONFIRMED')).map(c => (
+        <div key={`escrow-banner-${c.id}`} className="mb-6 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white border-2 border-emerald-400 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5">
+            <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center shrink-0 text-emerald-300">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                  FPO Escrow Protected
+                </span>
+                <span className="text-xs text-emerald-300 font-mono">
+                  Contract #{c.id} • UTR: {c.escrow_deposit_ref || 'ICICI-ESC-CONFIRMED'}
+                </span>
+              </div>
+              <h4 className="text-base sm:text-lg font-bold text-white mt-1">
+                {c.buyer_name} Escrow Locked: ₹{c.total_amount.toLocaleString()} Vault Safe
+              </h4>
+              <p className="text-xs text-emerald-200/90 mt-0.5">
+                Admin approved buyer's funds into ICICI Escrow. Your payment is 100% guaranteed upon dispatch of {c.quantity} {c.unit} {c.commodity}.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setFpoModalContract(c)}
+              className="px-4 py-2.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-stone-900 font-bold text-xs shadow-md transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Award className="w-4 h-4 text-stone-900" />
+              <span>View FPO Guarantee & Dispatch</span>
+            </button>
+          </div>
+        </div>
+      ))}
 
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 text-left">
@@ -4658,6 +4721,19 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
           </div>
         </div>
       )}
+
+      {/* Escrow FPO Guarantee Modal */}
+      <EscrowFPOModal
+        contract={fpoModalContract}
+        isOpen={!!fpoModalContract}
+        onClose={() => {
+          if (fpoModalContract) {
+            sessionStorage.setItem('dismissed_fpo_modal_' + fpoModalContract.id, 'true');
+          }
+          setFpoModalContract(null);
+        }}
+        onDispatchProduce={handleDispatchContractProduce}
+      />
     </div>
   );
 };

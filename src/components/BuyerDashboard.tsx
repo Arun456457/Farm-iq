@@ -11,6 +11,7 @@ import { translations, tr, translateCrop, translateUnit } from '../translations'
 import { calculateAutomatedDistance, calculateAccurateRoadDistanceAsync, calculateDeliveryFee, AutomatedDistanceResult } from '../utils/distance';
 import { LocationPickerModal } from './LocationPickerModal';
 import { LiveTrackingModal } from './LiveTrackingModal';
+import { ContractEscrowPaymentModal } from './ContractEscrowPaymentModal';
 
 interface BuyerDashboardProps {
   user: User;
@@ -58,6 +59,8 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
   const [orders, setOrders] = useState<Order[]>([]);
   const [lots, setLots] = useState<FPOLot[]>([]);
   const [contracts, setContracts] = useState<DigitalContract[]>([]);
+  const [escrowModalContract, setEscrowModalContract] = useState<DigitalContract | null>(null);
+  const [confirmingDeliveryContractId, setConfirmingDeliveryContractId] = useState<string | null>(null);
   const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -198,25 +201,22 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
     }
   };
 
-  // Buyer deposits transaction funds into escrow
-  const handleDepositEscrow = async (contractId: string) => {
-    try {
-      await api.depositContractEscrow(contractId);
-      setActionSuccessMsg(`✓ Funds locked in Escrow Desk for Contract #${contractId}. Farmer can now safely prepare and dispatch harvest.`);
-      await loadBuyerData(true);
-    } catch (err: any) {
-      setActionErrorMsg(err.message || 'Failed to deposit to escrow');
-    }
+  // Open escrow payment modal for buyer (Sandbox, UPI QR, Bank NEFT)
+  const handleOpenEscrowPaymentModal = (c: DigitalContract) => {
+    setEscrowModalContract(c);
   };
 
-  // Buyer confirms delivery -> Escrow auto-sends payment directly to farmer account
+  // Buyer confirms delivery -> Marks contract delivery confirmed and notifies admin to release payment
   const handleConfirmContractDelivery = async (contractId: string) => {
+    setConfirmingDeliveryContractId(contractId);
     try {
-      const res = await api.confirmContractDelivery(contractId);
-      setActionSuccessMsg(`🎉 Delivery Confirmed! Escrow payment of ₹${res.payment_record?.net_farmer_payout || 'settled'} has been automatically released to the farmer's account. (1.5% platform fee recorded).`);
+      const res = await api.buyerConfirmContractDelivery(contractId);
+      setActionSuccessMsg(`📦 Delivery Confirmed! Admin has been notified to release the ₹${(res.contract?.net_farmer_payout || res.contract?.escrow_amount || 0).toLocaleString('en-IN')} escrow payout to the farmer.`);
       await loadBuyerData(true);
     } catch (err: any) {
       setActionErrorMsg(err.message || 'Failed to confirm contract delivery');
+    } finally {
+      setConfirmingDeliveryContractId(null);
     }
   };
 
@@ -1105,9 +1105,12 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                 const totalEscrow = c.escrow_amount || Math.round(c.required_quantity * c.offer_price);
                 const platformFee = c.admin_monetization_fee || Math.round(totalEscrow * 0.015);
                 const netFarmerPayout = c.net_farmer_payout || Math.round(totalEscrow * 0.985);
-                const isHeldInEscrow = c.escrow_status === 'HELD_IN_ESCROW' || c.status === 'ACCEPTED_IN_ESCROW' || c.escrow_funded;
-                const isDelivered = c.status === 'DELIVERED' || c.delivery_confirmed;
-                const isCompleted = c.status === 'COMPLETED';
+                const isNotFunded = !c.escrow_funded || c.escrow_status === 'NOT_FUNDED';
+                const isPendingAdmin = c.admin_approval_status === 'PENDING' || c.escrow_status === 'PENDING_ADMIN_APPROVAL';
+                const isHeldInEscrow = c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED';
+                const isRejected = c.admin_approval_status === 'REJECTED' || c.escrow_status === 'REFUNDED_TO_BUYER';
+                const isBuyerConfirmed = c.buyer_confirmed_delivery;
+                const isCompleted = c.status === 'COMPLETED' || c.escrow_status === 'RELEASED_TO_FARMER';
 
                 return (
                   <div key={c.id} className="bg-white rounded-2xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-4 hover:border-purple-300 transition">
@@ -1121,13 +1124,17 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                             </span>
                             <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
                               isCompleted ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                              isDelivered ? 'bg-blue-100 text-blue-800 border border-blue-300 animate-pulse' :
-                              isHeldInEscrow ? 'bg-purple-100 text-purple-900 border border-purple-300' :
-                              'bg-amber-100 text-amber-800'
+                              isRejected ? 'bg-rose-100 text-rose-800 border border-rose-300' :
+                              isBuyerConfirmed ? 'bg-purple-100 text-purple-800 border border-purple-300' :
+                              isHeldInEscrow ? 'bg-blue-100 text-blue-900 border border-blue-300' :
+                              isPendingAdmin ? 'bg-amber-100 text-amber-900 border border-amber-300 animate-pulse' :
+                              'bg-stone-100 text-stone-700 border border-stone-300'
                             }`}>
                               {isCompleted ? '✓ COMPLETED & SETTLED' :
-                               isDelivered ? '📦 DELIVERED (AWAITING CONFIRMATION)' :
-                               isHeldInEscrow ? '🔒 HELD IN ESCROW' : 'OPEN FOR FARMER BIDS'}
+                               isRejected ? '↩️ REJECTED & REFUNDED' :
+                               isBuyerConfirmed ? '📦 DELIVERY CONFIRMED (AWAITING PAYOUT)' :
+                               isHeldInEscrow ? '🔒 HELD IN VAULT (FPO GUARANTEED)' :
+                               isPendingAdmin ? '⏳ AWAITING ADMIN APPROVAL' : 'UNFUNDED ESCROW'}
                             </span>
                           </div>
                           <h4 className="text-base font-bold text-stone-900 mt-1">{c.title || `${c.crop_name} Contract`}</h4>
@@ -1157,6 +1164,22 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                           <span className="text-stone-800">{c.delivery_deadline}</span>
                         </div>
                       </div>
+
+                      {/* Escrow Deposit Details */}
+                      {c.escrow_payment_mode && (
+                        <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-200 text-xs flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-indigo-800 block">Payment Mode</span>
+                            <span className="font-semibold text-stone-900">
+                              {c.escrow_payment_mode === 'SIMULATED_SANDBOX' ? '🧪 Sandbox Simulator' :
+                               c.escrow_payment_mode === 'UPI_QR' ? '📱 UPI QR' : '🏦 Bank NEFT'}
+                            </span>
+                          </div>
+                          <div className="text-right font-mono text-[11px] text-stone-600">
+                            UTR: {c.escrow_utr || c.escrow_transaction_id}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Assigned Farmer Card */}
                       {c.assigned_farmer_name && (
@@ -1191,7 +1214,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                           <span>- ₹{platformFee.toLocaleString('en-IN')}</span>
                         </div>
                         <div className="flex justify-between pt-1 border-t border-purple-200 font-bold text-emerald-900">
-                          <span>Auto-Payout to Farmer on Confirmation:</span>
+                          <span>Farmer Payout on Delivery Confirmation:</span>
                           <span>₹{netFarmerPayout.toLocaleString('en-IN')}</span>
                         </div>
                       </div>
@@ -1199,31 +1222,87 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
 
                     {/* Action Controls */}
                     <div className="pt-2 border-t border-stone-100 flex flex-col gap-2">
-                      {!isHeldInEscrow && !isCompleted && (
+                      {isNotFunded && (
                         <button
                           type="button"
-                          onClick={() => handleDepositEscrow(c.id)}
+                          onClick={() => handleOpenEscrowPaymentModal(c)}
                           className="w-full py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
                         >
                           <ShieldCheck className="w-4 h-4" />
-                          <span>Deposit Funds to Escrow Desk (₹{totalEscrow})</span>
+                          <span>💳 Pay & Fund Escrow Desk (Sandbox / UPI / NEFT)</span>
                         </button>
                       )}
 
-                      {/* Confirm Delivery Button: When farmer delivers or in transit, buyer clicks to release payout */}
-                      {isHeldInEscrow && !isCompleted && (
-                        <button
-                          type="button"
-                          onClick={() => handleConfirmContractDelivery(c.id)}
-                          className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer animate-pulse"
-                        >
-                          <Check className="w-4 h-4 text-emerald-200" />
-                          <span>Confirm Delivery & Release Escrow to Farmer (₹{netFarmerPayout})</span>
-                        </button>
+                      {isPendingAdmin && (
+                        <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <Clock className="w-3.5 h-3.5 text-amber-600 animate-spin" />
+                            <span>Awaiting Admin Verification & Vault Lock</span>
+                          </div>
+                          <p className="text-[11px] text-amber-700">
+                            Your escrow payment of ₹{totalEscrow.toLocaleString('en-IN')} via {c.escrow_payment_mode || 'Simulator'} (Ref: {c.escrow_utr || c.escrow_transaction_id}) has been submitted. Admin must Accept or Reject into vault before harvest authorization.
+                          </p>
+                        </div>
+                      )}
+
+                      {isRejected && (
+                        <div className="space-y-2">
+                          <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-900 space-y-1">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Escrow Rejected by Admin</span>
+                            </div>
+                            <p className="text-[11px] text-rose-700">
+                              Reason: {c.admin_rejection_reason || 'Verification discrepancy'}. ₹{totalEscrow.toLocaleString('en-IN')} refunded to your original payment source. Refund UTR: {c.refund_transaction_id || 'REF-SENT'}.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEscrowPaymentModal(c)}
+                            className="w-full py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            <span>Re-deposit Escrow Funds</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {isHeldInEscrow && !isBuyerConfirmed && (
+                        <div className="space-y-2">
+                          <div className="p-2.5 bg-blue-50/70 rounded-xl border border-blue-200 text-[11px] text-blue-900 flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0" />
+                            <span>100% Escrow locked in secure vault. Farmer received Escrow FPO Guarantee Popup.</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmContractDelivery(c.id)}
+                            disabled={confirmingDeliveryContractId === c.id}
+                            className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                          >
+                            {confirmingDeliveryContractId === c.id ? (
+                              <RefreshCw className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4 text-emerald-200" />
+                            )}
+                            <span>✓ Confirm Produce Received & Verified</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {isBuyerConfirmed && !isCompleted && (
+                        <div className="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs text-purple-900 space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold">
+                            <CheckCircle className="w-3.5 h-3.5 text-purple-600" />
+                            <span>Order Received Confirmed by You!</span>
+                          </div>
+                          <p className="text-[11px] text-purple-700">
+                            Produce delivery confirmed. Admin has been notified to release the ₹{netFarmerPayout.toLocaleString('en-IN')} escrow payout to the farmer.
+                          </p>
+                        </div>
                       )}
 
                       {isCompleted && (
-                        <div className="w-full py-2 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5 border border-emerald-300">
+                        <div className="w-full py-2.5 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1.5 border border-emerald-300">
                           <CheckCircle className="w-4 h-4" />
                           <span>Contract Fulfilled • Escrow Sent Directly to Farmer</span>
                         </div>
@@ -1868,6 +1947,19 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* CONTRACT ESCROW PAYMENT MODAL */}
+      {escrowModalContract && (
+        <ContractEscrowPaymentModal
+          contract={escrowModalContract}
+          onClose={() => setEscrowModalContract(null)}
+          onSuccess={(updatedContract) => {
+            setEscrowModalContract(null);
+            setActionSuccessMsg(`✓ Escrow payment submitted for Contract #${updatedContract.id}! Awaiting Admin approval into Vault.`);
+            loadBuyerData(true);
+          }}
+        />
       )}
     </div>
   );

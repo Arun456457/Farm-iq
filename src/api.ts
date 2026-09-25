@@ -188,11 +188,25 @@ export const api = {
   acceptContract: (id: string) => request<DigitalContract>(`/contracts/${id}/accept`, {
     method: 'POST'
   }),
-  depositContractEscrow: (id: string, payload?: any) => request<DigitalContract>(`/contracts/${id}/escrow-deposit`, {
+  depositContractEscrow: (id: string, payload?: any) => request<{ message: string; contract: DigitalContract }>(`/contracts/${id}/escrow-deposit`, {
     method: 'POST',
     body: JSON.stringify(payload || {})
   }),
+  adminApproveContractEscrow: (id: string, notes?: string) => request<{ message: string; contract: DigitalContract }>(`/contracts/${id}/admin-approve`, {
+    method: 'POST',
+    body: JSON.stringify({ notes })
+  }),
+  adminRejectContractEscrow: (id: string, reason?: string) => request<{ message: string; contract: DigitalContract }>(`/contracts/${id}/admin-reject`, {
+    method: 'POST',
+    body: JSON.stringify({ reason })
+  }),
   deliverContract: (id: string) => request<DigitalContract>(`/contracts/${id}/deliver`, {
+    method: 'POST'
+  }),
+  buyerConfirmContractDelivery: (id: string) => request<{ message: string; contract: DigitalContract }>(`/contracts/${id}/buyer-confirm-delivery`, {
+    method: 'POST'
+  }),
+  adminReleaseContractPayout: (id: string) => request<{ message: string; contract: DigitalContract; payment_record: any }>(`/contracts/${id}/admin-release-payout`, {
     method: 'POST'
   }),
   confirmContractDelivery: (id: string) => request<{ message: string; contract: DigitalContract; payment_record: any }>(`/contracts/${id}/confirm-delivery`, {

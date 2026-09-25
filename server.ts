@@ -102,6 +102,109 @@ function loadState(): DBState {
       if (!merged.invoices) merged.invoices = [];
       if (!merged.notifications) merged.notifications = [];
       if (!merged.payments) merged.payments = [];
+      if (!merged.contracts || merged.contracts.length === 0) {
+        merged.contracts = [
+          {
+            id: "CON-101",
+            title: "Digital Forward Contract: 100 Quintal Hybrid Tomato",
+            buyer_id: 201,
+            buyer_name: "Reliance Fresh Direct Sourcing",
+            buyer_company: "Reliance Fresh Direct Sourcing",
+            crop_name: "Tomato",
+            required_quantity: 100,
+            unit: "Quintal",
+            offer_price: 3800,
+            quality_grade: "Grade-A Export Quality",
+            delivery_location: "Navi Mumbai Central Distribution Centre",
+            delivery_deadline: "2026-10-15",
+            terms: "100% Escrow Secured with FarmIQ. Instant payout release upon delivery receipt confirmation.",
+            status: "OPEN",
+            assigned_farmer_id: null,
+            assigned_farmer_name: null,
+            escrow_funded: false,
+            escrow_amount: 380000,
+            escrow_status: "NOT_FUNDED",
+            admin_approval_status: "NOT_APPLICABLE",
+            admin_monetization_fee: 5700,
+            net_farmer_payout: 374300,
+            created_at: new Date(Date.now() - 86400000).toISOString()
+          },
+          {
+            id: "CON-102",
+            title: "Digital Forward Contract: 50 Quintal Nashik Red Onion",
+            buyer_id: 202,
+            buyer_name: "BigBasket Direct B2B Wholesale",
+            buyer_company: "BigBasket Direct B2B Wholesale",
+            crop_name: "Onion",
+            required_quantity: 50,
+            unit: "Quintal",
+            offer_price: 2800,
+            quality_grade: "Grade-A Export",
+            delivery_location: "Pune Chakan Logistics Cluster",
+            delivery_deadline: "2026-10-10",
+            terms: "Escrow Deposited via Sandbox NPCI. Awaiting Admin Review and Vault Lock.",
+            status: "ACCEPTED_IN_ESCROW",
+            assigned_farmer_id: 1002,
+            assigned_farmer_name: "Arun",
+            assigned_farmer_phone: "+91 9133144324",
+            assigned_farmer_location: "Venkateswara Colony, Ongole",
+            escrow_funded: true,
+            escrow_amount: 140000,
+            escrow_status: "PENDING_ADMIN_APPROVAL",
+            admin_approval_status: "PENDING",
+            escrow_payment_mode: "SIMULATED_SANDBOX",
+            escrow_utr: "SANDBOX-NPCI-984321",
+            escrow_transaction_id: "SANDBOX-NPCI-984321",
+            escrow_deposited_at: new Date(Date.now() - 3600000).toISOString(),
+            admin_monetization_fee: 2100,
+            net_farmer_payout: 137900,
+            created_at: new Date(Date.now() - 172800000).toISOString()
+          },
+          {
+            id: "CON-103",
+            title: "Digital Forward Contract: 80 Quintal Premium Wheat",
+            buyer_id: 203,
+            buyer_name: "ITC Agri Business Division",
+            buyer_company: "ITC Agri Business Division",
+            crop_name: "Wheat",
+            required_quantity: 80,
+            unit: "Quintal",
+            offer_price: 3200,
+            quality_grade: "Sharbati Grade-A",
+            delivery_location: "Central Agri Corridor Hub, Indore",
+            delivery_deadline: "2026-10-05",
+            terms: "Admin Verified Escrow Vault. Farmer delivered produce. Buyer confirmation pending.",
+            status: "DELIVERED",
+            assigned_farmer_id: 1002,
+            assigned_farmer_name: "Arun",
+            assigned_farmer_phone: "+91 9133144324",
+            assigned_farmer_location: "Venkateswara Colony, Ongole",
+            escrow_funded: true,
+            escrow_amount: 256000,
+            escrow_status: "HELD_IN_ESCROW",
+            admin_approval_status: "APPROVED",
+            admin_approval_notes: "ICICI Agri Escrow verified. Guaranteed payout locked in vault.",
+            admin_approved_at: new Date(Date.now() - 7200000).toISOString(),
+            escrow_payment_mode: "UPI_QR",
+            escrow_utr: "UPI-ICICI-4892019",
+            escrow_transaction_id: "UPI-ICICI-4892019",
+            escrow_deposited_at: new Date(Date.now() - 14400000).toISOString(),
+            admin_monetization_fee: 3840,
+            net_farmer_payout: 252160,
+            buyer_confirmed_delivery: false,
+            created_at: new Date(Date.now() - 259200000).toISOString()
+          }
+        ];
+      } else {
+        merged.contracts.forEach((c: any) => {
+          if (!c.escrow_status) {
+            c.escrow_status = c.escrow_funded ? "HELD_IN_ESCROW" : "NOT_FUNDED";
+          }
+          if (!c.admin_approval_status) {
+            c.admin_approval_status = c.escrow_funded ? "APPROVED" : "NOT_APPLICABLE";
+          }
+        });
+      }
 
       // Ensure all registered users from users.json & data/users.json are always preserved
       try {
@@ -2197,19 +2300,141 @@ async function startServer() {
     res.json({ message: "Contract successfully accepted! Funds remain locked in Escrow.", contract });
   });
 
-  // VERIFIED BUYER ESCROW DEPOSIT
+  // VERIFIED BUYER ESCROW DEPOSIT (Simulated Sandbox, UPI QR, Bank NEFT)
   app.post("/api/contracts/:id/escrow-deposit", (req, res) => {
     const user = getUserFromToken(req);
     const contractId = req.params.id;
     const contract = db.contracts.find(c => c.id === contractId);
     if (!contract) return res.status(404).json({ error: "Contract not found" });
 
+    const payment_mode = req.body?.payment_mode || "SIMULATED_SANDBOX";
+    const utr = req.body?.utr || `ESC-UTR-${Date.now().toString().slice(-8)}`;
+    const now = new Date().toISOString();
+
     contract.escrow_funded = true;
-    contract.escrow_status = "HELD_IN_ESCROW";
-    contract.escrow_transaction_id = req.body?.transaction_id || `ESC-${Date.now().toString().slice(-6)}`;
+    contract.escrow_status = "PENDING_ADMIN_APPROVAL";
+    contract.admin_approval_status = "PENDING";
+    contract.escrow_payment_mode = payment_mode;
+    contract.escrow_utr = utr;
+    contract.escrow_transaction_id = utr;
+    contract.escrow_deposited_at = now;
+    if (req.body?.amount) {
+      contract.escrow_amount = Number(req.body.amount);
+      contract.admin_monetization_fee = Math.round(contract.escrow_amount * 0.015);
+      contract.net_farmer_payout = contract.escrow_amount - contract.admin_monetization_fee;
+    }
+
+    // Add notification for Admin to review and accept/reject
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift({
+      id: `NOTIF-ADM-${Date.now()}`,
+      recipient_id: 99, // Admin
+      type: "ESCROW_DEPOSIT_PENDING",
+      title: "💰 New Escrow Deposit Awaiting Approval",
+      message: `Buyer "${contract.buyer_name}" submitted ₹${(contract.escrow_amount || 0).toLocaleString('en-IN')} escrow via ${payment_mode} (Ref: ${utr}) for Contract #${contract.id}. Please Review and Accept/Reject.`,
+      contract_id: contract.id,
+      amount: contract.escrow_amount,
+      time: now,
+      status: "UNREAD",
+      requires_action: true,
+      created_at: now
+    });
+
     saveState(db);
     broadcastEvent("ESCROW_DEPOSITED", { contract });
-    res.json({ message: "Escrow funds locked successfully. Farmer can safely dispatch produce.", contract });
+    res.json({ message: "Escrow payment submitted to vault! Awaiting Admin verification & acceptance.", contract });
+  });
+
+  // ADMIN ACCEPTS ESCROW -> LOCKS IN VAULT & SENDS FPO GUARANTEE POPUP NOTIFICATION TO FARMER
+  app.post("/api/contracts/:id/admin-approve", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    const notes = req.body?.notes || "Escrow funds verified by FarmIQ Admin. Guaranteed payout locked in vault.";
+    const now = new Date().toISOString();
+
+    contract.escrow_status = "HELD_IN_ESCROW";
+    contract.admin_approval_status = "APPROVED";
+    contract.admin_approval_notes = notes;
+    contract.admin_approved_at = now;
+
+    // Send POPUP Notification to Farmer (Escrow FPO Modal Guarantee)
+    if (contract.assigned_farmer_id) {
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift({
+        id: `NOTIF-FPO-${Date.now()}`,
+        recipient_id: contract.assigned_farmer_id,
+        type: "ESCROW_FPO_GUARANTEE",
+        title: "🛡️ ESCROW FPO GUARANTEE: Payment Verified & Locked in Vault!",
+        message: `Admin has verified and locked 100% escrow funds (₹${(contract.escrow_amount || 0).toLocaleString('en-IN')}) for Contract #${contract.id}. You can now safely harvest and dispatch produce!`,
+        contract_id: contract.id,
+        amount: contract.escrow_amount,
+        time: now,
+        status: "UNREAD",
+        requires_action: true,
+        created_at: now
+      });
+    }
+
+    // Also notify Buyer
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift({
+      id: `NOTIF-BUYER-${Date.now()}`,
+      recipient_id: contract.buyer_id,
+      type: "ESCROW_APPROVED",
+      title: "🔒 Escrow Deposit Accepted by Admin",
+      message: `Admin has verified and locked your escrow deposit for Contract #${contract.id}. Farmer has been authorized to proceed with delivery.`,
+      contract_id: contract.id,
+      amount: contract.escrow_amount,
+      time: now,
+      status: "UNREAD",
+      requires_action: false,
+      created_at: now
+    });
+
+    saveState(db);
+    broadcastEvent("ESCROW_ADMIN_APPROVED", { contract });
+    res.json({ message: "Escrow accepted and locked in vault! Farmer notified with FPO guarantee.", contract });
+  });
+
+  // ADMIN REJECTS ESCROW -> SENDS REFUND BACK TO VERIFIED BUYER
+  app.post("/api/contracts/:id/admin-reject", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    const reason = req.body?.reason || "Verification discrepancy or rejected by Admin";
+    const now = new Date().toISOString();
+    const refundTxnId = `REF-UPI-${Date.now().toString().slice(-8)}`;
+
+    contract.escrow_status = "REFUNDED_TO_BUYER";
+    contract.admin_approval_status = "REJECTED";
+    contract.admin_rejection_reason = reason;
+    contract.admin_rejected_at = now;
+    contract.refund_transaction_id = refundTxnId;
+
+    // Notify Verified Buyer of refund
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift({
+      id: `NOTIF-REFUND-${Date.now()}`,
+      recipient_id: contract.buyer_id,
+      type: "ESCROW_REFUNDED",
+      title: "↩️ Escrow Payment Rejected & Refunded",
+      message: `Admin rejected escrow for Contract #${contract.id}: "${reason}". ₹${(contract.escrow_amount || 0).toLocaleString('en-IN')} has been refunded to your original payment source. Refund UTR: ${refundTxnId}`,
+      contract_id: contract.id,
+      amount: contract.escrow_amount,
+      time: now,
+      status: "UNREAD",
+      requires_action: false,
+      created_at: now
+    });
+
+    saveState(db);
+    broadcastEvent("ESCROW_ADMIN_REJECTED", { contract, refund_transaction_id: refundTxnId });
+    res.json({ message: `Escrow rejected. Funds of ₹${(contract.escrow_amount || 0).toLocaleString('en-IN')} refunded back to Verified Buyer (Refund Ref: ${refundTxnId}).`, contract });
   });
 
   // FARMER MARKS PRODUCE DELIVERED
@@ -2225,8 +2450,72 @@ async function startServer() {
     res.json({ message: "Produce marked as delivered! Awaiting buyer confirmation for Escrow release.", contract });
   });
 
-  // VERIFIED BUYER CONFIRMS DELIVERY -> AUTO RELEASE ESCROW TO FARMER
+  // VERIFIED BUYER CONFIRMS PRODUCE RECEIVED & VERIFIED
+  app.post("/api/contracts/:id/buyer-confirm-delivery", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    const now = new Date().toISOString();
+    contract.buyer_confirmed_delivery = true;
+    contract.buyer_confirmed_at = now;
+    contract.status = "DELIVERY_CONFIRMED";
+
+    // Notify Admin that buyer confirmed delivery and payout can be released
+    if (!db.notifications) db.notifications = [];
+    db.notifications.unshift({
+      id: `NOTIF-ADM-DELIV-${Date.now()}`,
+      recipient_id: 99, // Admin
+      type: "BUYER_DELIVERY_CONFIRMED",
+      title: "📦 Order Received & Confirmed by Verified Buyer!",
+      message: `Buyer "${contract.buyer_name}" has confirmed receipt of produce for Contract #${contract.id}. Escrow payout of ₹${(contract.net_farmer_payout || contract.escrow_amount || 0).toLocaleString('en-IN')} is ready to be released to farmer ${contract.assigned_farmer_name}.`,
+      contract_id: contract.id,
+      time: now,
+      status: "UNREAD",
+      requires_action: true,
+      created_at: now
+    });
+
+    // Notify Farmer
+    if (contract.assigned_farmer_id) {
+      db.notifications.unshift({
+        id: `NOTIF-FARM-DELIV-${Date.now()}`,
+        recipient_id: contract.assigned_farmer_id,
+        type: "BUYER_CONFIRMED_DELIVERY",
+        title: "✅ Buyer Confirmed Order Receipt",
+        message: `Buyer "${contract.buyer_name}" confirmed produce receipt for Contract #${contract.id}. Admin will now release your escrow funds to your account.`,
+        contract_id: contract.id,
+        time: now,
+        status: "UNREAD",
+        requires_action: false,
+        created_at: now
+      });
+    }
+
+    saveState(db);
+    broadcastEvent("BUYER_CONFIRMED_DELIVERY", { contract });
+    res.json({ message: "Delivery confirmed! Admin has been notified to release the Escrow payout to the farmer.", contract });
+  });
+
+  // Backward compatibility alias for confirm-delivery
   app.post("/api/contracts/:id/confirm-delivery", (req, res) => {
+    const user = getUserFromToken(req);
+    const contractId = req.params.id;
+    const contract = db.contracts.find(c => c.id === contractId);
+    if (!contract) return res.status(404).json({ error: "Contract not found" });
+
+    const now = new Date().toISOString();
+    contract.buyer_confirmed_delivery = true;
+    contract.buyer_confirmed_at = now;
+    contract.status = "DELIVERY_CONFIRMED";
+    saveState(db);
+    broadcastEvent("BUYER_CONFIRMED_DELIVERY", { contract });
+    res.json({ message: "Order confirmed! Admin can now release payment.", contract });
+  });
+
+  // ADMIN SENDS MONEY / RELEASES ESCROW PAYOUT TO FARMER AFTER BUYER CONFIRMS DELIVERY
+  app.post("/api/contracts/:id/admin-release-payout", (req, res) => {
     const user = getUserFromToken(req);
     const contractId = req.params.id;
     const contract = db.contracts.find(c => c.id === contractId);
@@ -2241,14 +2530,14 @@ async function startServer() {
     contract.status = "COMPLETED";
     contract.escrow_status = "RELEASED_TO_FARMER";
     contract.delivery_confirmed = true;
-    contract.delivery_confirmed_at = now;
+    contract.admin_released_at = now;
     contract.settlement_transaction_id = settleTxnId;
 
     // Find assigned farmer user for UPI details
     const farmerUser = db.users.find(u => u.id === contract.assigned_farmer_id);
     const farmerUpi = farmerUser?.upi_id || "farmer@upi";
 
-    // Create automatic payment settlement record
+    // Create payment settlement record
     const paymentRecord = {
       id: `PAY-ESC-${Date.now()}`,
       contract_id: contract.id,
@@ -2261,7 +2550,7 @@ async function startServer() {
       platform_monetization_fee: adminFee,
       net_farmer_amount: payoutToFarmer,
       currency: "INR",
-      payment_method: "Escrow Auto-Settlement to Farmer UPI",
+      payment_method: "Admin Escrow Payout to Farmer UPI/Bank",
       transaction_id: settleTxnId,
       payment_status: "SETTLED_TO_FARMER",
       timestamp: now,
@@ -2272,27 +2561,26 @@ async function startServer() {
 
     // Notify farmer of payment release
     if (contract.assigned_farmer_id) {
-      const farmerNotif = {
-        id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      if (!db.notifications) db.notifications = [];
+      db.notifications.unshift({
+        id: `NOTIF-PAY-REL-${Date.now()}`,
         recipient_id: contract.assigned_farmer_id,
         type: "ESCROW_PAYMENT_RELEASED",
         title: "💰 Escrow Payment Released to Your Account!",
-        message: `Verified Buyer "${contract.buyer_name}" has confirmed delivery for contract #${contract.id}. ₹${payoutToFarmer.toLocaleString('en-IN')} has been transferred to your account! UTR: ${settleTxnId}`,
+        message: `Admin has released your escrow payment of ₹${payoutToFarmer.toLocaleString('en-IN')} for Contract #${contract.id} to your UPI/Bank (${farmerUpi}). UTR: ${settleTxnId}`,
         contract_id: contract.id,
         amount: payoutToFarmer,
         time: now,
         status: "UNREAD",
         requires_action: false,
         created_at: now
-      };
-      if (!db.notifications) db.notifications = [];
-      db.notifications.unshift(farmerNotif);
+      });
     }
 
     saveState(db);
     broadcastEvent("ESCROW_RELEASED", { contract, payment: paymentRecord });
     res.json({
-      message: `Delivery confirmed! Escrow funds of ₹${payoutToFarmer.toLocaleString('en-IN')} successfully released to farmer ${contract.assigned_farmer_name}. Platform fee: ₹${adminFee}.`,
+      message: `Escrow funds of ₹${payoutToFarmer.toLocaleString('en-IN')} successfully sent to farmer ${contract.assigned_farmer_name}! Platform monetization fee: ₹${adminFee}.`,
       contract,
       payment_record: paymentRecord
     });
@@ -2318,6 +2606,7 @@ async function startServer() {
       total_platform_monetization_earned: totalPlatformMonetizationEarned,
       pending_monetization_in_escrow: pendingMonetizationInEscrow,
       monetization_rate_pct: 1.5,
+      contracts: contracts,
       recent_escrow_settlements: (db.payments || []).filter(p => String(p.id).includes("ESC"))
     });
   });

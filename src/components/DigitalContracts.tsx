@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Plus, CheckCircle, ShieldCheck, MapPin, Calendar, IndianRupee, AlertCircle, ArrowRight, AlertTriangle } from 'lucide-react';
+import { FileText, Plus, CheckCircle, ShieldCheck, MapPin, Calendar, IndianRupee, AlertCircle, ArrowRight, AlertTriangle, Clock, RefreshCw, Send, Lock, ArrowDownLeft } from 'lucide-react';
 import { User, DigitalContract, LanguageCode } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
+import { ContractEscrowPaymentModal } from './ContractEscrowPaymentModal';
 
 interface DigitalContractsProps {
   user: User | null;
@@ -19,6 +20,8 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
   const [contracts, setContracts] = useState<DigitalContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [escrowModalContract, setEscrowModalContract] = useState<DigitalContract | null>(null);
+  const [confirmingDeliveryContractId, setConfirmingDeliveryContractId] = useState<string | null>(null);
 
   // New Contract form
   const [title, setTitle] = useState('Bulk Procurement: Grade-A Tomato');
@@ -43,6 +46,25 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleBuyerConfirmDelivery = async (contractId: string) => {
+    setConfirmingDeliveryContractId(contractId);
+    try {
+      const res = await api.buyerConfirmContractDelivery(contractId);
+      setStatusMessage({
+        type: 'success',
+        text: `📦 Produce Delivery Confirmed! Admin has been notified to release escrow payout of ₹${(res.contract?.net_farmer_payout || res.contract?.escrow_amount || 0).toLocaleString('en-IN')} to the farmer.`
+      });
+      fetchContracts();
+    } catch (err: any) {
+      setStatusMessage({
+        type: 'error',
+        text: err.message || 'Failed to confirm delivery'
+      });
+    } finally {
+      setConfirmingDeliveryContractId(null);
     }
   };
 
@@ -179,9 +201,19 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div>
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                      isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
+                      c.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
+                      c.admin_approval_status === 'REJECTED' ? 'bg-rose-100 text-rose-800' :
+                      c.buyer_confirmed_delivery ? 'bg-purple-100 text-purple-800' :
+                      c.admin_approval_status === 'APPROVED' ? 'bg-blue-100 text-blue-900' :
+                      c.admin_approval_status === 'PENDING' ? 'bg-amber-100 text-amber-900 animate-pulse' :
+                      isOpen ? 'bg-emerald-100 text-emerald-800' : 'bg-stone-100 text-stone-700'
                     }`}>
-                      {isOpen ? 'Open for Bidding' : c.status}
+                      {c.status === 'COMPLETED' ? '✓ Settled to Farmer' :
+                       c.admin_approval_status === 'REJECTED' ? '↩️ Escrow Refunded' :
+                       c.buyer_confirmed_delivery ? '📦 Delivery Verified' :
+                       c.admin_approval_status === 'APPROVED' ? '🔒 Vault Locked (FPO Guaranteed)' :
+                       c.admin_approval_status === 'PENDING' ? '⏳ Awaiting Admin Approval' :
+                       isOpen ? 'Open for Bidding' : c.status}
                     </span>
                     <h3 className="text-lg font-bold text-stone-900 mt-1">{c.title}</h3>
                   </div>
@@ -202,7 +234,7 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
                   </div>
                   <div className="flex justify-between">
                     <span className="text-stone-500">Total Contract Value:</span>
-                    <span className="font-bold text-emerald-800">₹{totalVal} in Escrow</span>
+                    <span className="font-bold text-emerald-800">₹{totalVal.toLocaleString('en-IN')} in Escrow</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-stone-500">Quality Spec:</span>
@@ -227,8 +259,8 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
               </div>
 
               {/* Action */}
-              <div>
-                {isOpen ? (
+              <div className="space-y-2">
+                {isOpen && (
                   <button
                     onClick={() => handleOpenAcceptModal(c)}
                     className="w-full py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
@@ -236,10 +268,79 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
                     <span>Accept & Lock Contract in Escrow</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
-                ) : (
-                  <div className="w-full py-2 rounded-xl bg-purple-50 text-purple-800 border border-purple-200 text-center font-bold text-xs flex items-center justify-center gap-1.5">
+                )}
+
+                {/* If escrow is not funded, show button to fund via modal */}
+                {(!c.escrow_funded || c.escrow_status === 'NOT_FUNDED') && !isOpen && (
+                  <button
+                    onClick={() => setEscrowModalContract(c)}
+                    className="w-full py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>💳 Pay & Fund Escrow Desk (Sandbox / UPI / NEFT)</span>
+                  </button>
+                )}
+
+                {/* If deposit pending admin approval */}
+                {c.admin_approval_status === 'PENDING' && (
+                  <div className="w-full p-2.5 rounded-xl bg-amber-50 text-amber-900 border border-amber-200 text-center font-bold text-xs flex items-center justify-center gap-1.5 animate-pulse">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span>Escrow Deposited via {c.escrow_payment_mode || 'Gateway'} • Awaiting Admin Approval</span>
+                  </div>
+                )}
+
+                {/* If admin approved & produce not yet confirmed by buyer */}
+                {c.admin_approval_status === 'APPROVED' && !c.buyer_confirmed_delivery && c.status !== 'COMPLETED' && (
+                  <div className="space-y-2">
+                    <div className="w-full py-1.5 rounded-lg bg-blue-50 text-blue-900 border border-blue-200 text-center font-bold text-[11px] flex items-center justify-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5 text-blue-600" />
+                      <span>100% Escrow Guaranteed & Locked in Vault</span>
+                    </div>
+                    <button
+                      onClick={() => handleBuyerConfirmDelivery(c.id)}
+                      disabled={confirmingDeliveryContractId === c.id}
+                      className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs shadow-md transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    >
+                      {confirmingDeliveryContractId === c.id ? (
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="w-4 h-4 text-emerald-200" />
+                      )}
+                      <span>✓ Confirm Produce Received & Verified</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* If buyer confirmed delivery */}
+                {c.buyer_confirmed_delivery && c.status !== 'COMPLETED' && (
+                  <div className="w-full py-2 rounded-xl bg-purple-50 text-purple-900 border border-purple-200 text-center font-bold text-xs flex items-center justify-center gap-1.5">
                     <CheckCircle className="w-4 h-4 text-purple-600" />
-                    <span>Contract Locked in Escrow</span>
+                    <span>Produce Confirmed by Buyer • Admin releasing payout</span>
+                  </div>
+                )}
+
+                {/* If escrow refunded */}
+                {c.admin_approval_status === 'REJECTED' && (
+                  <div className="space-y-1.5">
+                    <div className="w-full p-2 rounded-xl bg-rose-50 text-rose-900 border border-rose-200 text-center font-bold text-xs flex items-center justify-center gap-1.5">
+                      <ArrowDownLeft className="w-4 h-4 text-rose-600" />
+                      <span>Escrow Rejected & Refunded (Ref: {c.refund_transaction_id || 'REF-SENT'})</span>
+                    </div>
+                    <button
+                      onClick={() => setEscrowModalContract(c)}
+                      className="w-full py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Re-submit Escrow Payment</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* If completed */}
+                {c.status === 'COMPLETED' && (
+                  <div className="w-full py-2 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-center font-bold text-xs flex items-center justify-center gap-1.5">
+                    <CheckCircle className="w-4 h-4 text-emerald-600" />
+                    <span>Contract Completed • Payout Sent Directly to Farmer</span>
                   </div>
                 )}
               </div>
@@ -469,6 +570,22 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
             </form>
           </div>
         </div>
+      )}
+
+      {/* CONTRACT ESCROW PAYMENT MODAL */}
+      {escrowModalContract && (
+        <ContractEscrowPaymentModal
+          contract={escrowModalContract}
+          onClose={() => setEscrowModalContract(null)}
+          onSuccess={(updatedContract) => {
+            setEscrowModalContract(null);
+            setStatusMessage({
+              type: 'success',
+              text: `✓ Escrow payment submitted for Contract #${updatedContract.id}! Awaiting Admin approval into Vault.`
+            });
+            fetchContracts();
+          }}
+        />
       )}
     </div>
   );

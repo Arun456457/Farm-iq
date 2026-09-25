@@ -3,9 +3,9 @@ import {
   ShieldAlert, Users, Package, ShoppingBag, IndianRupee, Warehouse, 
   FileText, AlertTriangle, CheckCircle, RefreshCw, Eye, Truck, FilePlus, Filter,
   ShieldCheck, Building2, Check, X, Phone, Mail, MapPin, CheckCircle2, XCircle,
-  Database, Cloud, HardDrive
+  Database, Cloud, HardDrive, Lock, Send, ArrowDownLeft, Clock
 } from 'lucide-react';
-import { User, Product, Order, Dispute, LanguageCode, CustomerRequirement, StorageBooking, VerifiedBuyer } from '../types';
+import { User, Product, Order, Dispute, LanguageCode, CustomerRequirement, StorageBooking, VerifiedBuyer, DigitalContract } from '../types';
 import { api } from '../api';
 import { translations } from '../translations';
 import { LiveTrackingModal } from './LiveTrackingModal';
@@ -25,6 +25,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
   const [storageBookings, setStorageBookings] = useState<StorageBooking[]>([]);
   const [buyersList, setBuyersList] = useState<VerifiedBuyer[]>([]);
   const [monetization, setMonetization] = useState<any>(null);
+  const [contractsList, setContractsList] = useState<DigitalContract[]>([]);
+  const [escrowFilter, setEscrowFilter] = useState<'ALL' | 'PENDING' | 'HELD' | 'DELIVERY_CONFIRMED' | 'RELEASED' | 'REFUNDED'>('ALL');
+  const [escrowActionLoading, setEscrowActionLoading] = useState<string | null>(null);
+  const [escrowActionMsg, setEscrowActionMsg] = useState<string | null>(null);
+  const [rejectingContract, setRejectingContract] = useState<DigitalContract | null>(null);
+  const [rejectReasonInput, setRejectReasonInput] = useState('');
   const [buyerFilter, setBuyerFilter] = useState<'ALL' | 'PENDING' | 'VERIFIED' | 'REJECTED'>('ALL');
   const [verifyingBuyerId, setVerifyingBuyerId] = useState<string | null>(null);
   const [buyerActionMsg, setBuyerActionMsg] = useState<string | null>(null);
@@ -52,7 +58,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
   const fetchAdminData = async (isFirstLoad = false) => {
     try {
       if (isFirstLoad) setLoading(true);
-      const [over, uList, dList, rList, sList, bList, mData, dbStat] = await Promise.all([
+      const [over, uList, dList, rList, sList, bList, mData, dbStat, cList] = await Promise.all([
         api.getAdminOverview(),
         api.getAdminUsers(),
         api.getDisputes(),
@@ -60,7 +66,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
         api.getStorageBookings(),
         api.getAdminBuyers().catch(() => []),
         api.getAdminMonetization().catch(() => null),
-        api.getDbStatus().catch(() => null)
+        api.getDbStatus().catch(() => null),
+        api.getContracts().catch(() => [])
       ]);
       setOverview(over);
       setUsersList(uList.users || []);
@@ -70,10 +77,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
       setBuyersList(bList || []);
       setMonetization(mData);
       if (dbStat) setDbStatus(dbStat);
+      if (cList && cList.length > 0) {
+        setContractsList(cList);
+      } else if (mData?.contracts) {
+        setContractsList(mData.contracts);
+      }
     } catch (err) {
       console.error("Admin sync error:", err);
     } finally {
       if (isFirstLoad) setLoading(false);
+    }
+  };
+
+  const handleApproveEscrow = async (contractId: string) => {
+    setEscrowActionLoading(contractId);
+    setEscrowActionMsg(null);
+    try {
+      const res = await api.adminApproveContractEscrow(contractId, "Escrow verified and accepted by Admin. Guaranteed payout locked in vault.");
+      setEscrowActionMsg(`✓ Contract #${contractId} Escrow Accepted! Funds safely locked in vault & Farmer received Escrow FPO Guarantee Popup.`);
+      await fetchAdminData(false);
+    } catch (err: any) {
+      setEscrowActionMsg(`⚠️ ${err.message || 'Failed to approve escrow'}`);
+    } finally {
+      setEscrowActionLoading(null);
+    }
+  };
+
+  const handleOpenRejectModal = (contract: DigitalContract) => {
+    setRejectingContract(contract);
+    setRejectReasonInput('Deposit verification mismatch / Escrow rejected by Admin.');
+  };
+
+  const handleConfirmRejectEscrow = async () => {
+    if (!rejectingContract) return;
+    setEscrowActionLoading(rejectingContract.id);
+    try {
+      const res = await api.adminRejectContractEscrow(rejectingContract.id, rejectReasonInput);
+      setEscrowActionMsg(`↩️ Contract #${rejectingContract.id} Escrow Rejected. ₹${(rejectingContract.escrow_amount || 0).toLocaleString('en-IN')} refunded back to Verified Buyer.`);
+      setRejectingContract(null);
+      await fetchAdminData(false);
+    } catch (err: any) {
+      setEscrowActionMsg(`⚠️ ${err.message || 'Failed to reject escrow'}`);
+    } finally {
+      setEscrowActionLoading(null);
+    }
+  };
+
+  const handleReleasePayout = async (contractId: string) => {
+    setEscrowActionLoading(contractId);
+    setEscrowActionMsg(null);
+    try {
+      const res = await api.adminReleaseContractPayout(contractId);
+      setEscrowActionMsg(`💰 Payout for Contract #${contractId} successfully transferred to Farmer's account!`);
+      await fetchAdminData(false);
+    } catch (err: any) {
+      setEscrowActionMsg(`⚠️ ${err.message || 'Failed to release payout'}`);
+    } finally {
+      setEscrowActionLoading(null);
     }
   };
 
@@ -370,6 +430,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
         >
           <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
           <span>Contracts Escrow & Monetization</span>
+          {contractsList.filter(c => c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status)).length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white animate-pulse">
+              {contractsList.filter(c => c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status)).length} Action
+            </span>
+          )}
         </button>
       </div>
 
@@ -1073,65 +1138,161 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
       {/* VIEW 4: DIGITAL CONTRACTS ESCROW & MONETIZATION DESK */}
       {activeView === 'escrow' && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-base font-bold text-stone-900 font-['Outfit']">Digital Contracts Escrow & Monetization</h3>
-              <p className="text-xs text-stone-500">Institutional forward contract escrow holding, farmer payouts, and 1.5% platform monetization</p>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-purple-100 text-purple-700">
+                  <ShieldCheck className="w-5 h-5" />
+                </span>
+                <h3 className="text-base font-bold text-stone-900 font-['Outfit']">Digital Contracts Escrow & Monetization Desk</h3>
+              </div>
+              <p className="text-xs text-stone-500 mt-1">Review buyer escrow deposits, accept or reject escrow into vault, send money to farmers upon verified delivery, or issue refunds.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-stone-500">Live Contracts: {contractsList.length}</span>
             </div>
           </div>
 
-          {/* Monetization KPI Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-white p-5 rounded-xl border border-purple-200 shadow-2xs">
-              <span className="text-xs font-bold text-purple-900 uppercase tracking-wider block mb-1">
-                Platform Monetization Fee (1.5%)
+          {/* Action Notification Banner */}
+          {escrowActionMsg && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-900 flex items-center justify-between shadow-xs">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{escrowActionMsg}</span>
+              </div>
+              <button onClick={() => setEscrowActionMsg(null)} className="text-emerald-700 hover:text-emerald-900 font-bold ml-2">✕</button>
+            </div>
+          )}
+
+          {/* Enhanced Escrow KPI Metric Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {/* Awaiting Admin Approval */}
+            <div className="bg-amber-50/70 p-4 rounded-xl border border-amber-200 shadow-2xs">
+              <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block mb-1">
+                ⏳ Awaiting Review
               </span>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-purple-900">
-                  ₹{monetization?.total_platform_fee_collected ?? 0}
+                <span className="text-xl font-black text-amber-900">
+                  {contractsList.filter(c => c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status)).length}
                 </span>
-                <IndianRupee className="w-5 h-5 text-purple-600" />
+                <Clock className="w-4 h-4 text-amber-600" />
               </div>
-              <p className="text-[11px] text-purple-700 mt-1">Platform fee auto-deducted upon confirmed delivery</p>
+              <p className="text-[10px] text-amber-700 mt-1">Requires Admin Accept/Reject</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-amber-200 shadow-2xs">
-              <span className="text-xs font-bold text-amber-900 uppercase tracking-wider block mb-1">
-                Funds Held in Escrow
+            {/* Held in Vault */}
+            <div className="bg-blue-50/70 p-4 rounded-xl border border-blue-200 shadow-2xs">
+              <span className="text-[10px] font-bold text-blue-900 uppercase tracking-wider block mb-1">
+                🔒 In Escrow Vault
               </span>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-amber-900">
-                  ₹{monetization?.active_escrow_balance ?? 0}
+                <span className="text-xl font-black text-blue-900">
+                  {contractsList.filter(c => c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED').length}
                 </span>
-                <ShieldCheck className="w-5 h-5 text-amber-600" />
+                <Lock className="w-4 h-4 text-blue-600" />
               </div>
-              <p className="text-[11px] text-amber-700 mt-1">
-                {monetization?.active_in_escrow_count ?? 0} active institutional contract(s) secured
-              </p>
+              <p className="text-[10px] text-blue-700 mt-1">FPO payout guaranteed</p>
             </div>
 
-            <div className="bg-white p-5 rounded-xl border border-emerald-200 shadow-2xs">
-              <span className="text-xs font-bold text-emerald-900 uppercase tracking-wider block mb-1">
-                Settled Farmer Payouts
+            {/* Delivery Confirmed by Buyer */}
+            <div className="bg-purple-50/70 p-4 rounded-xl border border-purple-200 shadow-2xs">
+              <span className="text-[10px] font-bold text-purple-900 uppercase tracking-wider block mb-1">
+                📦 Buyer Confirmed
               </span>
               <div className="flex items-baseline justify-between">
-                <span className="text-2xl font-black text-emerald-800">
-                  ₹{monetization?.total_settled_farmer_payouts ?? 0}
+                <span className="text-xl font-black text-purple-900">
+                  {contractsList.filter(c => c.buyer_confirmed_delivery && c.escrow_status !== 'RELEASED_TO_FARMER').length}
                 </span>
-                <CheckCircle className="w-5 h-5 text-emerald-600" />
+                <Truck className="w-4 h-4 text-purple-600" />
               </div>
-              <p className="text-[11px] text-emerald-700 mt-1">
-                {monetization?.completed_contracts_count ?? 0} contract(s) fully fulfilled & paid to farmers
-              </p>
+              <p className="text-[10px] text-purple-700 mt-1">Ready for Admin Payout</p>
             </div>
+
+            {/* Settled to Farmer */}
+            <div className="bg-emerald-50/70 p-4 rounded-xl border border-emerald-200 shadow-2xs">
+              <span className="text-[10px] font-bold text-emerald-900 uppercase tracking-wider block mb-1">
+                💰 Settled Payouts
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xl font-black text-emerald-900">
+                  {contractsList.filter(c => c.escrow_status === 'RELEASED_TO_FARMER' || c.status === 'COMPLETED').length}
+                </span>
+                <CheckCircle className="w-4 h-4 text-emerald-600" />
+              </div>
+              <p className="text-[10px] text-emerald-700 mt-1">Remitted to Farmers</p>
+            </div>
+
+            {/* Refunded to Buyer */}
+            <div className="bg-rose-50/70 p-4 rounded-xl border border-rose-200 shadow-2xs">
+              <span className="text-[10px] font-bold text-rose-900 uppercase tracking-wider block mb-1">
+                ↩️ Refunded
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xl font-black text-rose-900">
+                  {contractsList.filter(c => c.escrow_status === 'REFUNDED_TO_BUYER' || c.admin_approval_status === 'REJECTED').length}
+                </span>
+                <ArrowDownLeft className="w-4 h-4 text-rose-600" />
+              </div>
+              <p className="text-[10px] text-rose-700 mt-1">Returned to Buyers</p>
+            </div>
+
+            {/* 1.5% Platform Fee */}
+            <div className="bg-stone-50 p-4 rounded-xl border border-stone-200 shadow-2xs">
+              <span className="text-[10px] font-bold text-stone-700 uppercase tracking-wider block mb-1">
+                Platform Monetization
+              </span>
+              <div className="flex items-baseline justify-between">
+                <span className="text-xl font-black text-purple-900">
+                  ₹{monetization?.total_platform_fee_collected ?? monetization?.total_platform_monetization_earned ?? 0}
+                </span>
+                <IndianRupee className="w-4 h-4 text-purple-600" />
+              </div>
+              <p className="text-[10px] text-stone-500 mt-1">1.5% transaction commission</p>
+            </div>
+          </div>
+
+          {/* Escrow Status Filter Pills */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+            <span className="text-stone-500 font-semibold flex items-center gap-1 shrink-0">
+              <Filter className="w-3.5 h-3.5" /> Filter by:
+            </span>
+            {[
+              { id: 'ALL', label: `All Contracts (${contractsList.length})` },
+              { id: 'PENDING', label: `⏳ Awaiting Approval (${contractsList.filter(c => c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status)).length})` },
+              { id: 'HELD', label: `🔒 Held in Vault (${contractsList.filter(c => c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED').length})` },
+              { id: 'DELIVERY_CONFIRMED', label: `📦 Ready for Payout (${contractsList.filter(c => c.buyer_confirmed_delivery && c.escrow_status !== 'RELEASED_TO_FARMER').length})` },
+              { id: 'RELEASED', label: `💰 Settled (${contractsList.filter(c => c.escrow_status === 'RELEASED_TO_FARMER' || c.status === 'COMPLETED').length})` },
+              { id: 'REFUNDED', label: `↩️ Refunded (${contractsList.filter(c => c.escrow_status === 'REFUNDED_TO_BUYER' || c.admin_approval_status === 'REJECTED').length})` }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setEscrowFilter(tab.id as any)}
+                className={`px-3 py-1.5 rounded-lg font-bold transition shrink-0 ${
+                  escrowFilter === tab.id
+                    ? 'bg-stone-900 text-white shadow-xs'
+                    : 'bg-white text-stone-600 hover:bg-stone-100 border border-stone-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {/* Contracts Escrow Breakdown Table */}
           <div className="bg-white rounded-2xl border border-stone-200 overflow-hidden shadow-xs">
             <div className="p-4 border-b border-stone-200 bg-stone-50/50 flex items-center justify-between">
-              <h4 className="text-sm font-bold text-stone-900">Digital Contracts Escrow Ledger</h4>
+              <h4 className="text-sm font-bold text-stone-900">Digital Contracts Escrow Ledger & Execution Controls</h4>
               <span className="text-xs font-semibold text-stone-500">
-                Total Contracts: {monetization?.contracts?.length ?? 0}
+                Displaying: {
+                  contractsList.filter(c => {
+                    if (escrowFilter === 'PENDING') return c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status);
+                    if (escrowFilter === 'HELD') return c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED';
+                    if (escrowFilter === 'DELIVERY_CONFIRMED') return c.buyer_confirmed_delivery && c.escrow_status !== 'RELEASED_TO_FARMER';
+                    if (escrowFilter === 'RELEASED') return c.escrow_status === 'RELEASED_TO_FARMER' || c.status === 'COMPLETED';
+                    if (escrowFilter === 'REFUNDED') return c.escrow_status === 'REFUNDED_TO_BUYER' || c.admin_approval_status === 'REJECTED';
+                    return true;
+                  }).length
+                } contracts
               </span>
             </div>
 
@@ -1139,57 +1300,199 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
               <table className="w-full text-xs text-left">
                 <thead className="bg-stone-50 text-stone-600 border-b border-stone-200 font-semibold">
                   <tr>
-                    <th className="py-3 px-4">Contract ID / Title</th>
-                    <th className="py-3 px-4">Institutional Buyer</th>
+                    <th className="py-3 px-4">Contract / Commodity</th>
+                    <th className="py-3 px-4">Verified Buyer</th>
                     <th className="py-3 px-4">Assigned Farmer</th>
-                    <th className="py-3 px-4">Escrow Value</th>
-                    <th className="py-3 px-4">1.5% Platform Fee</th>
-                    <th className="py-3 px-4">Net Farmer Payout</th>
+                    <th className="py-3 px-4">Escrow Deposit Details</th>
+                    <th className="py-3 px-4">Financials (₹)</th>
                     <th className="py-3 px-4">Escrow Status</th>
+                    <th className="py-3 px-4 text-right">Admin Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
-                  {(!monetization?.contracts || monetization.contracts.length === 0) ? (
+                  {contractsList
+                    .filter(c => {
+                      if (escrowFilter === 'PENDING') return c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status);
+                      if (escrowFilter === 'HELD') return c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED';
+                      if (escrowFilter === 'DELIVERY_CONFIRMED') return c.buyer_confirmed_delivery && c.escrow_status !== 'RELEASED_TO_FARMER';
+                      if (escrowFilter === 'RELEASED') return c.escrow_status === 'RELEASED_TO_FARMER' || c.status === 'COMPLETED';
+                      if (escrowFilter === 'REFUNDED') return c.escrow_status === 'REFUNDED_TO_BUYER' || c.admin_approval_status === 'REJECTED';
+                      return true;
+                    })
+                    .length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="py-8 text-center text-stone-400">
-                        No digital contracts recorded yet. When buyers initiate forward contracts, escrow movements will display here.
+                      <td colSpan={7} className="py-10 text-center text-stone-400">
+                        No contracts found for the selected filter.
                       </td>
                     </tr>
                   ) : (
-                    monetization.contracts.map((c: any) => (
-                      <tr key={c.id} className="hover:bg-stone-50/60">
-                        <td className="py-3 px-4">
-                          <span className="font-mono font-bold text-stone-900 block">#{c.id}</span>
-                          <span className="text-stone-500 text-[11px]">{c.title || c.crop_name}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-semibold text-stone-800 block">{c.buyer_name}</span>
-                          <span className="text-[10px] text-stone-400">{c.buyer_company || 'Corporate Buyer'}</span>
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className="font-semibold text-stone-800 block">{c.assigned_farmer_name || 'Pooled Farmers'}</span>
-                          <span className="text-[10px] text-stone-400">{c.assigned_farmer_phone || c.delivery_location}</span>
-                        </td>
-                        <td className="py-3 px-4 font-bold text-stone-900">
-                          ₹{c.escrow_amount || Math.round(c.required_quantity * c.offer_price)}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-purple-900">
-                          ₹{c.admin_monetization_fee || Math.round((c.escrow_amount || Math.round(c.required_quantity * c.offer_price)) * 0.015)}
-                        </td>
-                        <td className="py-3 px-4 font-bold text-emerald-800">
-                          ₹{c.net_farmer_payout || Math.round((c.escrow_amount || Math.round(c.required_quantity * c.offer_price)) * 0.985)}
-                        </td>
-                        <td className="py-3 px-4">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                            c.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
-                            c.escrow_status === 'HELD_IN_ESCROW' ? 'bg-amber-100 text-amber-900' :
-                            'bg-stone-100 text-stone-700'
-                          }`}>
-                            {c.status === 'COMPLETED' ? '✓ RELEASED TO FARMER' : c.escrow_status === 'HELD_IN_ESCROW' ? '🔒 HELD IN ESCROW' : c.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                    contractsList
+                      .filter(c => {
+                        if (escrowFilter === 'PENDING') return c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status);
+                        if (escrowFilter === 'HELD') return c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED';
+                        if (escrowFilter === 'DELIVERY_CONFIRMED') return c.buyer_confirmed_delivery && c.escrow_status !== 'RELEASED_TO_FARMER';
+                        if (escrowFilter === 'RELEASED') return c.escrow_status === 'RELEASED_TO_FARMER' || c.status === 'COMPLETED';
+                        if (escrowFilter === 'REFUNDED') return c.escrow_status === 'REFUNDED_TO_BUYER' || c.admin_approval_status === 'REJECTED';
+                        return true;
+                      })
+                      .map((c: any) => {
+                        const totalVal = c.escrow_amount || Math.round((c.required_quantity || 10) * (c.offer_price || 30));
+                        const adminFee = c.admin_monetization_fee || Math.round(totalVal * 0.015);
+                        const netPayout = c.net_farmer_payout || (totalVal - adminFee);
+                        const isPending = c.admin_approval_status === 'PENDING' || (c.escrow_funded && !c.admin_approval_status);
+                        const isHeld = c.escrow_status === 'HELD_IN_ESCROW' && c.admin_approval_status === 'APPROVED';
+                        const isBuyerConfirmed = c.buyer_confirmed_delivery;
+                        const isReleased = c.escrow_status === 'RELEASED_TO_FARMER' || c.status === 'COMPLETED';
+                        const isRefunded = c.escrow_status === 'REFUNDED_TO_BUYER' || c.admin_approval_status === 'REJECTED';
+
+                        return (
+                          <tr key={c.id} className="hover:bg-stone-50/60 transition">
+                            {/* Contract / Commodity */}
+                            <td className="py-3 px-4">
+                              <span className="font-mono font-bold text-stone-900 block">#{c.id}</span>
+                              <span className="text-stone-800 font-semibold text-[11px] block">{c.crop_name}</span>
+                              <span className="text-stone-400 text-[10px]">{c.required_quantity} {c.unit || 'kg'} • ₹{c.offer_price}/{c.unit || 'kg'}</span>
+                            </td>
+
+                            {/* Verified Buyer */}
+                            <td className="py-3 px-4">
+                              <span className="font-semibold text-stone-800 block">{c.buyer_name}</span>
+                              <span className="text-[10px] text-stone-400 block">{c.buyer_company || 'Corporate Sourcing'}</span>
+                              <span className="text-[10px] text-emerald-600 font-medium">✓ Verified Buyer</span>
+                            </td>
+
+                            {/* Assigned Farmer */}
+                            <td className="py-3 px-4">
+                              <span className="font-semibold text-stone-800 block">{c.assigned_farmer_name || 'Assigned Farmer'}</span>
+                              <span className="text-[10px] text-stone-400 block">{c.assigned_farmer_phone || c.delivery_location || 'Location verified'}</span>
+                              <span className="text-[10px] text-purple-700 font-mono">UPI: {c.assigned_farmer_upi || 'farmer@upi'}</span>
+                            </td>
+
+                            {/* Escrow Deposit Details */}
+                            <td className="py-3 px-4">
+                              <div className="space-y-0.5">
+                                <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                  c.escrow_payment_mode === 'SIMULATED_SANDBOX' ? 'bg-indigo-100 text-indigo-800' :
+                                  c.escrow_payment_mode === 'UPI_QR' ? 'bg-emerald-100 text-emerald-800' :
+                                  'bg-cyan-100 text-cyan-800'
+                                }`}>
+                                  {c.escrow_payment_mode === 'SIMULATED_SANDBOX' ? '🧪 Sandbox NPCI' :
+                                   c.escrow_payment_mode === 'UPI_QR' ? '📱 UPI QR' : '🏦 Bank NEFT'}
+                                </span>
+                                <div className="text-[10px] font-mono text-stone-600">
+                                  Ref: {c.escrow_utr || c.escrow_transaction_id || 'MOCK-UTR-849201'}
+                                </div>
+                                {c.escrow_deposited_at && (
+                                  <div className="text-[9px] text-stone-400">
+                                    {new Date(c.escrow_deposited_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Financials */}
+                            <td className="py-3 px-4">
+                              <div className="space-y-0.5">
+                                <div className="font-bold text-stone-900">₹{totalVal.toLocaleString('en-IN')}</div>
+                                <div className="text-[10px] text-purple-700 font-medium">Fee: ₹{adminFee.toLocaleString('en-IN')} (1.5%)</div>
+                                <div className="text-[10px] text-emerald-700 font-semibold">Net: ₹{netPayout.toLocaleString('en-IN')}</div>
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3 px-4">
+                              {isPending && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 animate-pulse">
+                                  <Clock className="w-3 h-3 text-amber-600" />
+                                  <span>Pending Admin Review</span>
+                                </span>
+                              )}
+                              {isHeld && !isBuyerConfirmed && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-blue-100 text-blue-900 border border-blue-300">
+                                  <Lock className="w-3 h-3 text-blue-600" />
+                                  <span>Locked in Vault</span>
+                                </span>
+                              )}
+                              {isBuyerConfirmed && !isReleased && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-purple-100 text-purple-900 border border-purple-300">
+                                  <CheckCircle className="w-3 h-3 text-purple-600" />
+                                  <span>Order Received by Buyer</span>
+                                </span>
+                              )}
+                              {isReleased && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>Settled to Farmer</span>
+                                </span>
+                              )}
+                              {isRefunded && (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-900 border border-rose-300">
+                                  <ArrowDownLeft className="w-3 h-3 text-rose-600" />
+                                  <span>Refunded to Buyer</span>
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Admin Action */}
+                            <td className="py-3 px-4 text-right">
+                              {isPending ? (
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => handleApproveEscrow(c.id)}
+                                    disabled={escrowActionLoading === c.id}
+                                    title="Accept escrow deposit into vault. Farmer will receive Escrow FPO Guarantee Popup!"
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition disabled:opacity-50 cursor-pointer"
+                                  >
+                                    {escrowActionLoading === c.id ? (
+                                      <RefreshCw className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Check className="w-3 h-3" />
+                                    )}
+                                    <span>Accept</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleOpenRejectModal(c)}
+                                    disabled={escrowActionLoading === c.id}
+                                    title="Reject deposit and refund money back to verified buyer."
+                                    className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition disabled:opacity-50 cursor-pointer"
+                                  >
+                                    <X className="w-3 h-3" />
+                                    <span>Reject</span>
+                                  </button>
+                                </div>
+                              ) : isBuyerConfirmed && !isReleased ? (
+                                <button
+                                  onClick={() => handleReleasePayout(c.id)}
+                                  disabled={escrowActionLoading === c.id}
+                                  title="Buyer confirmed order delivery! Click to remit escrow payout to farmer."
+                                  className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-sm transition disabled:opacity-50 cursor-pointer ml-auto"
+                                >
+                                  {escrowActionLoading === c.id ? (
+                                    <RefreshCw className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <Send className="w-3 h-3" />
+                                  )}
+                                  <span>Send Money to Farmer</span>
+                                </button>
+                              ) : isHeld && !isBuyerConfirmed ? (
+                                <div className="text-[10px] text-stone-400 italic text-right">
+                                  Awaiting Buyer receipt confirmation
+                                </div>
+                              ) : isReleased ? (
+                                <div className="text-[10px] text-emerald-700 font-mono text-right">
+                                  Ref: {c.settlement_transaction_id || 'ESC-SETTLE'}
+                                </div>
+                              ) : isRefunded ? (
+                                <div className="text-[10px] text-rose-700 font-mono text-right">
+                                  Refund Ref: {c.refund_transaction_id || 'REF-SENT'}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] text-stone-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
                   )}
                 </tbody>
               </table>
@@ -1278,6 +1581,81 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ESCROW REJECT & REFUND MODAL */}
+      {rejectingContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl border border-stone-200 text-left space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-stone-200">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-xl bg-rose-100 text-rose-700">
+                  <XCircle className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-bold text-stone-900">Reject Escrow & Issue Refund</h3>
+                  <p className="text-xs text-stone-500">Contract #{rejectingContract.id} • {rejectingContract.buyer_name}</p>
+                </div>
+              </div>
+              <button onClick={() => setRejectingContract(null)} className="text-stone-400 hover:text-stone-700 font-bold">✕</button>
+            </div>
+
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs space-y-1.5 text-rose-900">
+              <p className="font-semibold">⚠️ Refund Policy & Guarantee:</p>
+              <p>Rejecting will immediately refund <strong>₹{(rejectingContract.escrow_amount || Math.round((rejectingContract.required_quantity || 10) * (rejectingContract.offer_price || 30))).toLocaleString('en-IN')}</strong> back to verified buyer <em>"{rejectingContract.buyer_name}"</em>. A refund reference UTR will be issued.</p>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-stone-700 mb-1">Rejection Reason *</label>
+              <textarea
+                rows={3}
+                value={rejectReasonInput}
+                onChange={(e) => setRejectReasonInput(e.target.value)}
+                className="w-full p-2.5 text-xs border border-stone-300 rounded-xl outline-none focus:border-stone-900 focus:ring-1 focus:ring-stone-900"
+                placeholder="Specify reason for rejecting escrow deposit..."
+              />
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {[
+                  'UTR payment verification mismatch',
+                  'Incorrect deposit amount transferred',
+                  'Mutual cancellation requested by buyer'
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setRejectReasonInput(preset)}
+                    className="text-[10px] px-2 py-0.5 rounded bg-stone-100 hover:bg-stone-200 text-stone-700 transition cursor-pointer"
+                  >
+                    + {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setRejectingContract(null)}
+                className="flex-1 py-2.5 text-xs font-bold rounded-xl border border-stone-300 text-stone-700 hover:bg-stone-50 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRejectEscrow}
+                disabled={escrowActionLoading === rejectingContract.id || !rejectReasonInput.trim()}
+                className="flex-1 py-2.5 text-xs font-bold rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {escrowActionLoading === rejectingContract.id ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                )}
+                <span>Confirm & Refund Buyer</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
