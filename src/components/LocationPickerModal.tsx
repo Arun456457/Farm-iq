@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapPin, Navigation, Search, Check, X, Compass, Loader2, Sparkles, ExternalLink, Layers } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { User } from '../types';
+import { User, LanguageCode } from '../types';
 import { api, setStoredUser } from '../api';
+import { tr } from '../translations';
 
 interface LocationPickerModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface LocationPickerModalProps {
   onAddressSaved?: (newAddress: string, coords: { lat: number; lng: number }, pincode?: string) => void;
   title?: string;
   defaultAddress?: string;
+  language?: LanguageCode;
 }
 
 export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
@@ -20,7 +22,8 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
   user,
   onAddressSaved,
   title = "Select Address & Location",
-  defaultAddress
+  defaultAddress,
+  language = 'en',
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -332,9 +335,9 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               <MapPin className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-stone-900">{title}</h2>
+              <h2 className="text-base font-bold text-stone-900">{tr(title, language)}</h2>
               <p className="text-xs text-stone-500">
-                Pick on the interactive map or enter manual details below
+                {tr("Pick on the interactive map or enter manual details below", language)}
               </p>
             </div>
           </div>
@@ -355,7 +358,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
                 <input
                   type="text"
-                  placeholder="Search city, town, mandi, or colony..."
+                  placeholder={tr("Search city, town, mandi, or colony...", language)}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
@@ -366,7 +369,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 disabled={isSearching}
                 className="px-3 py-2 bg-stone-800 text-white rounded-xl text-xs font-semibold hover:bg-stone-900 transition flex items-center gap-1 cursor-pointer shrink-0"
               >
-                {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Search'}
+                {isSearching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : tr("Search", language)}
               </button>
             </form>
 
@@ -381,14 +384,14 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               ) : (
                 <Navigation className="w-4 h-4 text-emerald-600" />
               )}
-              <span>{isLocating ? 'Locating...' : 'Use My GPS Location'}</span>
+              <span>{isLocating ? tr("Locating...", language) : tr("Use My GPS Location", language)}</span>
             </button>
           </div>
 
           {/* Search dropdown results */}
           {searchResults.length > 0 && (
             <div className="bg-white border border-stone-200 rounded-xl shadow-md p-2 space-y-1">
-              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-2">Matching Places</p>
+              <p className="text-[10px] font-bold text-stone-400 uppercase tracking-wider px-2">{tr("Matching Places", language)}</p>
               {searchResults.map((item, idx) => (
                 <button
                   key={idx}
@@ -405,7 +408,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
 
           {/* Quick Presets */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-medium text-stone-500">Quick hubs:</span>
+            <span className="text-[11px] font-medium text-stone-500">{tr("Quick hubs:", language)}</span>
             {PRESET_LOCATIONS.map((preset, idx) => (
               <button
                 key={idx}
@@ -432,7 +435,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                   mapLayerType === 'google_road' ? 'bg-white text-emerald-900 shadow-xs font-bold' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                🗺️ Google Road Map
+                🗺️ {tr("Google Road Map", language)}
               </button>
               <button
                 type="button"
@@ -441,7 +444,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                   mapLayerType === 'google_hybrid' ? 'bg-white text-emerald-900 shadow-xs font-bold' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                🛰️ Google Satellite
+                🛰️ {tr("Google Satellite", language)}
               </button>
               <button
                 type="button"
@@ -450,7 +453,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                   mapLayerType === 'osm' ? 'bg-white text-emerald-900 shadow-xs font-bold' : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
-                🌐 OpenStreetMap
+                🌐 {tr("OpenStreetMap", language)}
               </button>
             </div>
 
@@ -461,7 +464,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
               className="text-[11px] text-emerald-700 hover:text-emerald-900 font-bold flex items-center gap-1 hover:underline bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200"
               title="Verify address and location directly on Google Maps"
             >
-              <span>View on Google Maps</span>
+              <span>{tr("View on Google Maps", language)}</span>
               <ExternalLink className="w-3 h-3" />
             </a>
           </div>
@@ -475,7 +478,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             {/* Map overlay hint */}
             <div className="absolute bottom-2 left-2 bg-white/90 backdrop-blur-sm px-2.5 py-1 rounded-md text-[10px] font-medium text-stone-600 shadow-sm border border-stone-200 flex items-center gap-1 z-[1000]">
               <Sparkles className="w-3 h-3 text-emerald-600" />
-              <span>Google Maps view active • Click or drag pin to adjust exact location</span>
+              <span>{tr("Google Maps view active • Click or drag pin to adjust exact location", language)}</span>
             </div>
           </div>
 
@@ -493,20 +496,20 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
           <div className="space-y-3 pt-1">
             <div>
               <label className="block text-xs font-bold text-stone-700 mb-1">
-                Full Address / Delivery Point:
+                {tr("Full Address / Delivery Point:", language)}
               </label>
               <textarea
                 rows={2}
                 value={addressText}
                 onChange={(e) => setAddressText(e.target.value)}
-                placeholder="House / Flat No., Street, Landmark, Area, City, State, PIN"
+                placeholder={tr("House / Flat No., Street, Landmark, Area, City, State, PIN", language)}
                 className="w-full px-3 py-2 bg-white border border-stone-200 rounded-xl text-xs sm:text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500"
               />
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
               <div>
-                <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">Locality / Landmark</label>
+                <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">{tr("Locality / Landmark", language)}</label>
                 <input
                   type="text"
                   value={areaName}
@@ -516,7 +519,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">City / District</label>
+                <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">{tr("City / District", language)}</label>
                 <input
                   type="text"
                   value={city}
@@ -526,7 +529,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
                 />
               </div>
               <div className="col-span-2 sm:col-span-1">
-                <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">PIN Code</label>
+                <label className="block text-[11px] font-semibold text-stone-600 mb-0.5">{tr("PIN Code", language)}</label>
                 <input
                   type="text"
                   value={pincode}
@@ -546,7 +549,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-stone-600 hover:text-stone-900 transition cursor-pointer"
           >
-            Cancel
+            {tr("Cancel", language)}
           </button>
           <button
             type="button"
@@ -559,7 +562,7 @@ export const LocationPickerModal: React.FC<LocationPickerModalProps> = ({
             ) : (
               <Check className="w-4 h-4" />
             )}
-            <span>Save & Use Selected Address</span>
+            <span>{tr("Save & Use Selected Address", language)}</span>
           </button>
         </div>
       </div>

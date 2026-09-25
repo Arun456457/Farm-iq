@@ -4,8 +4,9 @@ import {
   IndianRupee, QrCode, Smartphone, CheckCircle2, AlertCircle, 
   Loader2, X, ShieldCheck, Copy, Check, ExternalLink, Sparkles, RefreshCw, Banknote
 } from 'lucide-react';
-import { Order, Invoice } from '../types';
+import { Order, Invoice, LanguageCode } from '../types';
 import { api } from '../api';
+import { tr, translateCrop } from '../translations';
 
 interface UPIPaymentModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface UPIPaymentModalProps {
   order: Order | null;
   invoice?: Invoice | null;
   onPaymentSuccess: (updatedOrder: Order) => void;
+  language?: LanguageCode;
 }
 
 export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
@@ -21,6 +23,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
   order,
   invoice,
   onPaymentSuccess,
+  language = 'en',
 }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [paymentMode, setPaymentMode] = useState<'qr' | 'manual_utr' | 'cod'>('qr');
@@ -188,9 +191,9 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
               <IndianRupee className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-stone-900">Choose Payment Method</h3>
+              <h3 className="text-sm font-bold text-stone-900">{tr("Choose Payment Method", language)}</h3>
               <p className="text-xs text-stone-500">
-                Order #{order.id} • {order.product_name}
+                {tr("Order", language)} #{order.id} • {translateCrop(order.product_name, language)}
               </p>
             </div>
           </div>
@@ -205,12 +208,12 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
 
         {/* Amount Pill */}
         <div className="bg-emerald-900 text-white p-4 text-center shrink-0">
-          <span className="text-xs uppercase tracking-widest text-emerald-200 font-bold">Total Payable Amount</span>
+          <span className="text-xs uppercase tracking-widest text-emerald-200 font-bold">{tr("Total Payable Amount", language)}</span>
           <div className="text-3xl font-black font-mono mt-0.5">
             ₹{payableAmount.toLocaleString('en-IN')}
           </div>
           <p className="text-[11px] text-emerald-300 mt-1">
-            Matches Invoice Total • 0% Platform Deductions
+            {tr("Matches Invoice Total • 0% Platform Deductions", language)}
           </p>
         </div>
 
@@ -226,7 +229,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
             }`}
           >
             <QrCode className="w-3.5 h-3.5" />
-            <span>UPI QR</span>
+            <span>{tr("UPI QR", language)}</span>
           </button>
           <button
             type="button"
@@ -238,7 +241,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
             }`}
           >
             <Smartphone className="w-3.5 h-3.5" />
-            <span>Enter UTR</span>
+            <span>{tr("Enter UTR", language)}</span>
           </button>
           <button
             type="button"
@@ -250,7 +253,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
             }`}
           >
             <Banknote className="w-3.5 h-3.5" />
-            <span>Cash on Delivery</span>
+            <span>{tr("Cash on Delivery", language)}</span>
           </button>
         </div>
 
@@ -268,7 +271,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
           {isProcessing && (
             <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs p-3.5 rounded-xl flex items-center gap-2.5 animate-pulse">
               <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
-              <span className="font-semibold">{processStage || 'Processing payment verification...'}</span>
+              <span className="font-semibold">{processStage ? tr(processStage, language) : tr("Processing payment verification...", language)}</span>
             </div>
           )}
 
@@ -291,7 +294,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
 
               {/* Supported UPI Apps Row */}
               <div className="flex items-center justify-center gap-2 text-[11px] font-medium text-stone-500">
-                <span>Scan with:</span>
+                <span>{tr("Scan with:", language)}</span>
                 <span className="px-1.5 py-0.5 bg-stone-100 rounded text-stone-700 font-semibold">GPay</span>
                 <span className="px-1.5 py-0.5 bg-stone-100 rounded text-stone-700 font-semibold">PhonePe</span>
                 <span className="px-1.5 py-0.5 bg-stone-100 rounded text-stone-700 font-semibold">Paytm</span>
@@ -301,7 +304,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
               {/* Farmer VPA Copy Pill */}
               <div className="w-full bg-stone-50 border border-stone-200 p-2.5 rounded-xl flex items-center justify-between text-xs">
                 <div className="text-left truncate mr-2">
-                  <span className="text-[10px] uppercase font-bold text-stone-400 block">Farmer UPI VPA</span>
+                  <span className="text-[10px] uppercase font-bold text-stone-400 block">{tr("Farmer UPI VPA", language)}</span>
                   <span className="font-mono font-bold text-stone-800 truncate block">{farmerUpiId}</span>
                 </div>
                 <button
@@ -310,7 +313,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                   className="px-2.5 py-1 bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition cursor-pointer shrink-0"
                 >
                   {copiedVpa ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedVpa ? 'Copied' : 'Copy'}</span>
+                  <span>{copiedVpa ? tr("Copied!", language) : tr("Copy", language)}</span>
                 </button>
               </div>
 
@@ -320,7 +323,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                 className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer border border-stone-200"
               >
                 <Smartphone className="w-4 h-4 text-stone-600" />
-                <span>Pay with UPI App on Mobile</span>
+                <span>{tr("Pay with UPI App on Mobile", language)}</span>
                 <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
               </a>
 
@@ -337,10 +340,10 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                   ) : (
                     <Sparkles className="w-4 h-4 text-emerald-200" />
                   )}
-                  <span>Simulate Payment (Instant Sandbox Test)</span>
+                  <span>{tr("Simulate Payment (Instant Sandbox Test)", language)}</span>
                 </button>
                 <p className="text-[10px] text-stone-400 mt-1">
-                  Testing mode: simulates NPCI gateway verification & real-time webhook update.
+                  {tr("Testing mode: simulates NPCI gateway verification & real-time webhook update.", language)}
                 </p>
               </div>
             </div>
@@ -350,16 +353,16 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
               <div className="bg-emerald-50/60 border border-emerald-200/80 p-3 rounded-xl text-xs text-emerald-900 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold">
                   <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  <span>Manual UPI Verification</span>
+                  <span>{tr("Manual UPI Verification", language)}</span>
                 </div>
                 <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  If you scanned the QR code with your UPI app on another device, copy the 12-digit UTR (UPI Ref ID) from your banking receipt to confirm the order.
+                  {tr("If you scanned the QR code with your UPI app on another device, copy the 12-digit UTR (UPI Ref ID) from your banking receipt to confirm the order.", language)}
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  12-Digit UPI Reference Number (UTR):
+                  {tr("12-Digit UPI Reference Number (UTR):", language)}
                 </label>
                 <input
                   type="text"
@@ -373,15 +376,15 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
 
               <div className="bg-stone-50 border border-stone-200 p-3 rounded-xl text-xs text-stone-600 space-y-1">
                 <div className="flex justify-between">
-                  <span>Payee (Farmer):</span>
+                  <span>{tr("Payee (Farmer):", language)}</span>
                   <span className="font-semibold text-stone-900">{farmerName}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Farmer VPA:</span>
+                  <span>{tr("Farmer VPA:", language)}</span>
                   <span className="font-mono text-stone-900">{farmerUpiId}</span>
                 </div>
                 <div className="flex justify-between font-bold text-stone-900 pt-1 border-t border-stone-200">
-                  <span>Payable:</span>
+                  <span>{tr("Payable:", language)}</span>
                   <span className="font-mono text-emerald-800">₹{payableAmount.toLocaleString('en-IN')}</span>
                 </div>
               </div>
@@ -396,7 +399,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                 ) : (
                   <CheckCircle2 className="w-4 h-4" />
                 )}
-                <span>Verify & Mark Order as Paid</span>
+                <span>{tr("Verify & Mark Order as Paid", language)}</span>
               </button>
             </form>
           ) : (
@@ -405,34 +408,34 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl space-y-2.5 text-xs">
                 <div className="flex items-center gap-2 font-bold text-amber-950 text-sm">
                   <Banknote className="w-5 h-5 text-amber-700 shrink-0" />
-                  <span>Cash on Delivery (Pay upon Arrival)</span>
+                  <span>{tr("Cash on Delivery (Pay upon Arrival)", language)}</span>
                 </div>
                 <p className="text-amber-800 leading-relaxed">
-                  Pay <strong>₹{payableAmount.toLocaleString('en-IN')}</strong> in cash directly to the delivery person once your fresh harvest is delivered and inspected at your doorstep.
+                  {tr("Pay", language)} <strong>₹{payableAmount.toLocaleString('en-IN')}</strong> {tr("in cash directly to the delivery person once your fresh harvest is delivered and inspected at your doorstep.", language)}
                 </p>
                 <div className="pt-2 border-t border-amber-200/80 space-y-1.5 text-[11px] text-amber-900">
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                    <span>Zero upfront online payment needed today</span>
+                    <span>{tr("Zero upfront online payment needed today", language)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                    <span>Inspect produce freshness before paying</span>
+                    <span>{tr("Inspect produce freshness before paying", language)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Check className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                    <span>Farmer immediately receives green signal to prepare & pack your order</span>
+                    <span>{tr("Farmer immediately receives green signal to prepare & pack your order", language)}</span>
                   </div>
                 </div>
               </div>
 
               <div className="p-3 bg-stone-50 border border-stone-200 rounded-xl text-xs text-stone-600 space-y-1">
                 <div className="flex justify-between">
-                  <span>Payee Farmer:</span>
+                  <span>{tr("Payee Farmer:", language)}</span>
                   <span className="font-semibold text-stone-900">{farmerName}</span>
                 </div>
                 <div className="flex justify-between font-bold text-stone-900 pt-1 border-t border-stone-200">
-                  <span>Cash Amount to Pay at Doorstep:</span>
+                  <span>{tr("Cash Amount to Pay at Doorstep:", language)}</span>
                   <span className="font-mono text-emerald-800 text-sm">₹{payableAmount.toLocaleString('en-IN')}</span>
                 </div>
               </div>
@@ -446,12 +449,12 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Confirming Cash on Delivery...</span>
+                    <span>{tr("Confirming Cash on Delivery...", language)}</span>
                   </>
                 ) : (
                   <>
                     <Check className="w-4 h-4" />
-                    <span>Confirm Cash on Delivery Order (₹{payableAmount.toLocaleString('en-IN')})</span>
+                    <span>{tr("Confirm Cash on Delivery Order", language)} (₹{payableAmount.toLocaleString('en-IN')})</span>
                   </>
                 )}
               </button>
@@ -462,7 +465,7 @@ export const UPIPaymentModal: React.FC<UPIPaymentModalProps> = ({
         {/* Security Footer */}
         <div className="px-5 py-3 border-t border-stone-100 bg-stone-50/80 flex items-center justify-center gap-2 text-[11px] text-stone-500">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>NPCI 256-Bit Encrypted • Direct Farmer Bank Settlement</span>
+          <span>{tr("NPCI 256-Bit Encrypted • Direct Farmer Bank Settlement", language)}</span>
         </div>
       </div>
     </div>

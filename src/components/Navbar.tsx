@@ -5,7 +5,7 @@ import {
   Menu, X, ChevronRight, CheckCircle2, Phone, Bell
 } from 'lucide-react';
 import { User, LanguageCode } from '../types';
-import { translations } from '../translations';
+import { translations, tr } from '../translations';
 import { NotificationCenter } from './NotificationCenter';
 import { triggerFullPageTranslation } from '../utils/translator';
 
@@ -227,11 +227,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 id="btn-install-app-header"
                 type="button"
                 onClick={onOpenInstallModal}
-                title={t.installFarmiQ || "Install FarmiQ on Desktop or Mobile"}
+                title={tr("Install FarmiQ on Desktop or Mobile", language)}
                 className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold shadow-xs transition cursor-pointer shrink-0 active:scale-95"
               >
                 <Download className="w-3.5 h-3.5 shrink-0" />
-                <span>{t.installFarmiQ || 'Install FarmiQ'}</span>
+                <span>{tr("Install FarmiQ", language)}</span>
               </button>
             )}
 
@@ -240,12 +240,12 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 type="button"
                 onClick={onOpenLocationPicker}
-                title="Change delivery or farm location on interactive map"
+                title={tr("Change Location", language)}
                 className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-xl bg-stone-50 hover:bg-emerald-50 border border-stone-200 hover:border-emerald-300 text-stone-700 hover:text-emerald-900 transition text-xs font-semibold cursor-pointer max-w-[100px] xs:max-w-[125px] sm:max-w-[160px] shrink shadow-2xs"
               >
                 <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                 <span className="truncate text-[11px]">
-                  {user.delivery_address || user.location || t.setLocation || 'Set Location'}
+                  {user.delivery_address || user.location || tr('Set Location', language)}
                 </span>
               </button>
             )}
@@ -349,7 +349,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     <Menu className="w-4 h-4 text-emerald-900 shrink-0" />
                   )}
                   <span className="text-xs font-bold text-emerald-950 hidden sm:inline">
-                    {isMenuOpen ? 'Close' : 'Menu'}
+                    {isMenuOpen ? tr('Close', language) : tr('Menu', language)}
                   </span>
                 </button>
 
@@ -371,7 +371,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               {user.full_name}
                             </p>
                             <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-200 inline-block">
-                              {user.role}
+                              {tr(user.role, language)}
                             </span>
                           </div>
                         </div>
@@ -383,20 +383,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                             if (onOpenEditProfile) onOpenEditProfile();
                           }}
                           className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold shadow-2xs transition flex items-center gap-1 shrink-0 cursor-pointer active:scale-95"
-                          title="Edit Profile"
+                          title={tr("Edit Profile", language)}
                         >
                           <UserIcon className="w-3 h-3" />
-                          <span>Edit</span>
+                          <span>{tr("Edit", language)}</span>
                         </button>
                       </div>
                       <div className="text-[11px] text-stone-600 space-y-0.5 pt-1.5 border-t border-emerald-200/60">
                         <p className="truncate flex items-center gap-1.5">
                           <Phone className="w-3 h-3 text-stone-400 shrink-0" />
-                          <span className="font-semibold text-stone-800">{user.phone || 'No phone set'}</span>
+                          <span className="font-semibold text-stone-800">{user.phone || tr('No phone set', language)}</span>
                         </p>
                         <p className="truncate flex items-center gap-1.5">
                           <MapPin className="w-3 h-3 text-stone-400 shrink-0" />
-                          <span className="text-stone-500 truncate">{user.delivery_address || user.location || 'Location not set'}</span>
+                          <span className="text-stone-500 truncate">{user.delivery_address || user.location || tr('Location not set', language)}</span>
                         </p>
                       </div>
                     </div>
@@ -421,7 +421,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <Package className="w-4 h-4 text-emerald-600 shrink-0" />
                               <span className="text-xs">{t.myProduce}</span>
                             </div>
-                            {currentTab === 'my-produce' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                            {currentTab === 'my-produce' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                           <button
                             id="menu-item-farmer-orders"
@@ -438,7 +438,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
                               <span className="text-xs">{t.incomingOrders}</span>
                             </div>
-                            {currentTab === 'farmer-orders' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                            {currentTab === 'farmer-orders' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                         </div>
                       )}
@@ -460,7 +460,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <Package className="w-4 h-4 text-emerald-600 shrink-0" />
                               <span className="text-xs">{t.marketplace}</span>
                             </div>
-                            {currentTab === 'marketplace' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                            {currentTab === 'marketplace' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                           <button
                             id="menu-item-customer-orders"
@@ -477,7 +477,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <ShoppingBag className="w-4 h-4 text-blue-600 shrink-0" />
                               <span className="text-xs">{t.customerOrders}</span>
                             </div>
-                            {currentTab === 'customer-orders' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                            {currentTab === 'customer-orders' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                         </div>
                       )}
@@ -497,9 +497,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                           >
                             <div className="flex items-center gap-2.5">
                               <ShoppingBag className="w-4 h-4 text-amber-600 shrink-0" />
-                              <span className="text-xs">{t.buyerOrders || 'Buyer Orders'}</span>
+                              <span className="text-xs">{t.buyerOrders || tr('Buyer Orders', language)}</span>
                             </div>
-                            {currentTab === 'buyer-orders' && <span className="text-[10px] text-emerald-600 font-bold">{t.active || 'Active'}</span>}
+                            {currentTab === 'buyer-orders' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                           <button
                             id="menu-item-buyer-fpo"
@@ -514,9 +514,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                           >
                             <div className="flex items-center gap-2.5">
                               <Package className="w-4 h-4 text-emerald-700 shrink-0" />
-                              <span className="text-xs">{t.procureFpoLots || 'Procure FPO Lots'}</span>
+                              <span className="text-xs">{t.procureFpoLots || tr('Procure FPO Lots', language)}</span>
                             </div>
-                            {currentTab === 'buyer-fpo' && <span className="text-[10px] text-emerald-600 font-bold">{t.active || 'Active'}</span>}
+                            {currentTab === 'buyer-fpo' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                         </div>
                       )}
@@ -538,7 +538,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                               <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
                               <span className="text-xs">{t.adminDashboard}</span>
                             </div>
-                            {currentTab === 'admin-overview' && <span className="text-[10px] text-emerald-600 font-bold">Active</span>}
+                            {currentTab === 'admin-overview' && <span className="text-[10px] text-emerald-600 font-bold">{tr('Active', language)}</span>}
                           </button>
                         </div>
                       )}
@@ -562,7 +562,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-xs truncate">{t.digitalContracts}</span>
                         </div>
                         <span className="text-[9px] font-bold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded shrink-0">
-                          Escrow
+                          {tr('Escrow', language)}
                         </span>
                       </button>
 
@@ -585,7 +585,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-xs truncate">{t.liveMandiRates}</span>
                         </div>
                         <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
-                          APMC Live
+                          {tr('APMC Live', language)}
                         </span>
                       </button>
 
@@ -608,7 +608,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <span className="text-xs truncate">{t.storageLogistics}</span>
                         </div>
                         <span className="text-[9px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
-                          Cold Chain
+                          {tr('Cold Chain', language)}
                         </span>
                       </button>
 
@@ -624,7 +624,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
                           <Bell className="w-4 h-4 text-emerald-600 shrink-0" />
-                          <span className="text-xs truncate">Notifications & Alerts</span>
+                          <span className="text-xs truncate">{tr('Notifications & Alerts', language)}</span>
                         </div>
                         {notifCount > 0 ? (
                           <span className="text-[10px] font-bold text-white bg-red-500 px-2 py-0.5 rounded-full shrink-0 animate-pulse">
@@ -632,7 +632,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           </span>
                         ) : (
                           <span className="text-[9px] font-semibold text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded shrink-0">
-                            0 alerts
+                            {tr('0 alerts', language)}
                           </span>
                         )}
                       </button>
@@ -642,7 +642,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                         <div className="flex items-center justify-between mb-1.5">
                           <div className="flex items-center gap-2">
                             <Globe className="w-4 h-4 text-emerald-700" />
-                            <span className="text-xs font-bold text-stone-800">Language / भाषा</span>
+                            <span className="text-xs font-bold text-stone-800">{tr('Language / भाषा', language)}</span>
                           </div>
                           <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded border border-emerald-200">
                             {language === 'en' ? 'English' : language === 'hi' ? 'हिंदी' : language === 'te' ? 'తెలుగు' : 'मराठी'}
@@ -682,10 +682,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span className="text-xs truncate">Change Location</span>
+                            <span className="text-xs truncate">{tr('Change Location', language)}</span>
                           </div>
                           <span className="text-[9px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
-                            Map GPS
+                            {tr('Map GPS', language)}
                           </span>
                         </button>
                       )}
@@ -717,10 +717,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <Download className="w-4 h-4 text-emerald-700 shrink-0" />
-                            <span className="text-xs truncate">Install FarmiQ App</span>
+                            <span className="text-xs truncate">{tr('Install FarmiQ App', language)}</span>
                           </div>
                           <span className="text-[9px] font-bold text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded shrink-0">
-                            1-Click PWA
+                            {tr('1-Click PWA', language)}
                           </span>
                         </button>
                       )}
@@ -738,10 +738,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <LogOut className="w-4 h-4 text-red-600 shrink-0" />
-                            <span className="text-xs truncate">Logout from FarmiQ</span>
+                            <span className="text-xs truncate">{tr('Logout from FarmiQ', language)}</span>
                           </div>
                           <span className="text-[9px] font-black text-white bg-red-600 px-2.5 py-1 rounded shadow-2xs shrink-0 tracking-wider">
-                            SIGN OUT
+                            {tr('SIGN OUT', language)}
                           </span>
                         </button>
                       </div>

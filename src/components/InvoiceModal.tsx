@@ -3,7 +3,8 @@ import {
   FileText, Download, Printer, CheckCircle2, AlertCircle, X, 
   MapPin, Phone, Mail, IndianRupee, ShieldCheck, Truck, Sparkles, Building2, User as UserIcon
 } from 'lucide-react';
-import { Invoice, Order } from '../types';
+import { Invoice, Order, LanguageCode } from '../types';
+import { tr, translateCrop, translateUnit } from '../translations';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ interface InvoiceModalProps {
   order?: Order | null;
   onPayNow?: () => void;
   isCustomer?: boolean;
+  language?: LanguageCode;
 }
 
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({
@@ -21,6 +23,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   order,
   onPayNow,
   isCustomer = false,
+  language = 'en',
 }) => {
   const printAreaRef = useRef<HTMLDivElement>(null);
 
@@ -121,10 +124,10 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
             </div>
             <div>
               <h3 className="text-sm font-bold text-stone-900">
-                Official Tax Invoice • {invoice.invoice_number}
+                {tr("Official Tax Invoice", language)} • {invoice.invoice_number}
               </h3>
               <p className="text-[11px] text-stone-500">
-                Linked to Order #{invoice.order_id} • Generated on {new Date(invoice.generated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {tr("Order Ref:", language)} #{invoice.order_id} • {tr("Date:", language)} {new Date(invoice.generated_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
@@ -135,7 +138,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
               title="Print or Save as PDF"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / PDF</span>
+              <span>{tr("Print / PDF", language)}</span>
             </button>
             <button
               onClick={handleDownloadText}
@@ -143,7 +146,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
               title="Download text voucher"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>Download</span>
+              <span>{tr("Download", language)}</span>
             </button>
             <button
               onClick={onClose}
@@ -169,22 +172,22 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                 </div>
                 <span className="text-2xl font-black tracking-tight text-emerald-800 font-['Outfit',sans-serif]">FarmiQ</span>
                 <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Farm Direct
+                  {tr("Farm Direct", language)}
                 </span>
               </div>
               <p className="text-xs text-stone-500">
                 FarmiQ Agri-Logistics & Marketplace Network Ltd.
               </p>
               <p className="text-[11px] text-stone-400">
-                Direct mandi & farm-to-consumer decentralized trading platform
+                {tr("Direct Mandi & Farm-to-Consumer Platform", language)}
               </p>
             </div>
 
             <div className="sm:text-right">
-              <span className="text-xs uppercase tracking-widest text-stone-400 font-bold">COMMERCIAL INVOICE</span>
+              <span className="text-xs uppercase tracking-widest text-stone-400 font-bold">{tr("COMMERCIAL INVOICE", language)}</span>
               <p className="text-xl font-black text-stone-900 font-mono mt-0.5">{invoice.invoice_number}</p>
               <div className="mt-1 flex sm:justify-end items-center gap-2">
-                <span className="text-xs text-stone-500">Date:</span>
+                <span className="text-xs text-stone-500">{tr("Date:", language)}</span>
                 <span className="text-xs font-semibold text-stone-700">
                   {new Date(invoice.generated_at).toLocaleDateString('en-IN', {
                     day: 'numeric',
@@ -194,7 +197,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                 </span>
               </div>
               <div className="mt-1 flex sm:justify-end items-center gap-2">
-                <span className="text-xs text-stone-500">Order Ref:</span>
+                <span className="text-xs text-stone-500">{tr("Order Ref:", language)}</span>
                 <span className="text-xs font-mono font-bold text-emerald-800">#{invoice.order_id}</span>
               </div>
 
@@ -203,12 +206,12 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                 {isPaid ? (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 border-2 border-emerald-500 text-emerald-800 font-black text-xs uppercase tracking-widest rounded-lg shadow-sm">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>PAID • VERIFIED</span>
+                    <span>{tr("PAID • VERIFIED", language)}</span>
                   </div>
                 ) : (
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border-2 border-amber-500 text-amber-800 font-black text-xs uppercase tracking-widest rounded-lg shadow-sm">
                     <AlertCircle className="w-4 h-4 text-amber-600" />
-                    <span>CONFIRMED • UNPAID</span>
+                    <span>{tr("CONFIRMED • UNPAID", language)}</span>
                   </div>
                 )}
               </div>
@@ -221,7 +224,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
             <div className="bg-stone-50/80 p-4 rounded-xl border border-stone-200/80">
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-800 mb-2">
                 <Building2 className="w-3.5 h-3.5" />
-                <span>Billed By (Farmer / Producer)</span>
+                <span>{tr("Billed By (Farmer / Producer)", language)}</span>
               </div>
               <p className="text-sm font-bold text-stone-900">{invoice.farmer_name}</p>
               <div className="mt-1.5 space-y-1 text-xs text-stone-600">
@@ -239,7 +242,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                 </div>
                 {invoice.farmer_upi_id && (
                   <div className="mt-2 pt-2 border-t border-stone-200/60 flex items-center justify-between text-[11px]">
-                    <span className="text-stone-500">Farmer UPI ID:</span>
+                    <span className="text-stone-500">{tr("Farmer UPI ID:", language)}</span>
                     <span className="font-mono font-bold text-stone-800 bg-white px-2 py-0.5 rounded border border-stone-200">
                       {invoice.farmer_upi_id}
                     </span>
@@ -252,7 +255,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
             <div className="bg-stone-50/80 p-4 rounded-xl border border-stone-200/80">
               <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-teal-800 mb-2">
                 <UserIcon className="w-3.5 h-3.5" />
-                <span>Billed To (Customer / Consignee)</span>
+                <span>{tr("Billed To (Customer / Consignee)", language)}</span>
               </div>
               <p className="text-sm font-bold text-stone-900">{invoice.customer_name}</p>
               <div className="mt-1.5 space-y-1 text-xs text-stone-600">
@@ -269,8 +272,8 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                   <span>{invoice.customer_email}</span>
                 </div>
                 <div className="mt-2 pt-2 border-t border-stone-200/60 flex items-center justify-between text-[11px]">
-                  <span className="text-stone-500">Dispatched Via:</span>
-                  <span className="font-semibold text-stone-700">FarmiQ Eco-Refrigerated Express</span>
+                  <span className="text-stone-500">{tr("Dispatched Via:", language)}</span>
+                  <span className="font-semibold text-stone-700">{tr("FarmiQ Eco-Refrigerated Express", language)}</span>
                 </div>
               </div>
             </div>
@@ -282,11 +285,11 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
               <thead className="bg-stone-100 text-stone-600 uppercase tracking-wider text-[10px] font-bold border-b border-stone-200">
                 <tr>
                   <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Description of Produce</th>
-                  <th className="px-4 py-3 text-center">HSN / Category</th>
-                  <th className="px-4 py-3 text-right">Quantity</th>
-                  <th className="px-4 py-3 text-right">Rate / Unit</th>
-                  <th className="px-4 py-3 text-right">Subtotal</th>
+                  <th className="px-4 py-3">{tr("Description of Produce", language)}</th>
+                  <th className="px-4 py-3 text-center">{tr("HSN / Category", language)}</th>
+                  <th className="px-4 py-3 text-right">{tr("Quantity", language)}</th>
+                  <th className="px-4 py-3 text-right">{tr("Rate / Unit", language)}</th>
+                  <th className="px-4 py-3 text-right">{tr("Subtotal", language)}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-100 font-medium text-stone-800">
@@ -294,14 +297,14 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                   <tr key={idx} className="hover:bg-stone-50/50">
                     <td className="px-4 py-3 text-stone-400 font-mono">{idx + 1}</td>
                     <td className="px-4 py-3 font-semibold text-stone-900">
-                      {item.product_name}
+                      {translateCrop(item.product_name, language)}
                       <span className="block text-[10px] text-stone-400 font-normal">
-                        Naturally Farm-Grown • Direct Harvest
+                        {tr("Naturally Farm-Grown • Direct Harvest", language)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center text-stone-500 font-mono text-[11px]">0702 (Agri)</td>
                     <td className="px-4 py-3 text-right font-semibold">
-                      {item.quantity} {item.unit}
+                      {item.quantity} {translateUnit(item.unit, language)}
                     </td>
                     <td className="px-4 py-3 text-right">₹{item.unit_price.toLocaleString('en-IN')}</td>
                     <td className="px-4 py-3 text-right font-bold text-stone-900">
@@ -319,44 +322,44 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
               <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3.5 text-xs space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-emerald-900">
                   <ShieldCheck className="w-4 h-4 text-emerald-700" />
-                  <span>GST Exemption Notification</span>
+                  <span>{tr("GST Exemption Notification", language)}</span>
                 </div>
                 <p className="text-[11px] text-emerald-800 leading-relaxed">
-                  Raw, fresh agricultural produce (fruits, vegetables, cereals) is 100% exempt from Goods & Services Tax under Schedule 1 of Notification No. 2/2017-Central Tax (Rate).
+                  {tr("Raw, fresh agricultural produce (fruits, vegetables, cereals) is 100% exempt from Goods & Services Tax under Schedule 1 of Notification No. 2/2017-Central Tax (Rate).", language)}
                 </p>
               </div>
 
               <div className="bg-stone-50 border border-stone-200/80 rounded-xl p-3.5 text-xs text-stone-600 space-y-1">
                 <div className="flex items-center gap-1.5 font-bold text-stone-800">
                   <Truck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>FarmiQ Transparent Logistics</span>
+                  <span>{tr("FarmiQ Transparent Logistics", language)}</span>
                 </div>
                 <p className="text-[11px] text-stone-500">
-                  Delivery is charged at distance-based fair rates (₹{invoice.delivery_fee} for {invoice.distance_km} km) directly supporting rural transport drivers.
+                  {tr("Delivery is charged at distance-based fair rates directly supporting rural transport drivers.", language)} ({invoice.distance_km} {tr("km away", language)})
                 </p>
               </div>
             </div>
 
             <div className="sm:col-span-5 bg-stone-50 rounded-xl p-4 border border-stone-200 space-y-2.5 text-xs">
               <div className="flex justify-between text-stone-600">
-                <span>Produce Subtotal:</span>
+                <span>{tr("Produce Subtotal:", language)}</span>
                 <span className="font-semibold text-stone-900">₹{invoice.product_subtotal.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-stone-600">
-                <span>Delivery Fee ({invoice.distance_km} km):</span>
+                <span>{tr("Delivery Fee", language)} ({invoice.distance_km} km):</span>
                 <span className="font-semibold text-stone-900">₹{invoice.delivery_fee.toLocaleString('en-IN')}</span>
               </div>
               <div className="flex justify-between text-stone-600">
-                <span>Applicable GST (0%):</span>
-                <span className="font-semibold text-emerald-700">₹0.00 (Exempt)</span>
+                <span>{tr("Applicable GST (0%):", language)}</span>
+                <span className="font-semibold text-emerald-700">₹0.00 ({tr("Exempt", language)})</span>
               </div>
               <div className="flex justify-between text-stone-600">
-                <span>Special Discounts:</span>
+                <span>{tr("Special Discounts:", language)}</span>
                 <span className="font-semibold text-stone-900">₹0.00</span>
               </div>
 
               <div className="pt-2 border-t border-stone-300 flex justify-between items-baseline">
-                <span className="text-sm font-bold text-stone-900">Final Total:</span>
+                <span className="text-sm font-bold text-stone-900">{tr("Final Total:", language)}</span>
                 <span className="text-lg font-black text-emerald-800 font-mono">
                   ₹{invoice.final_amount.toLocaleString('en-IN')}
                 </span>
@@ -365,12 +368,12 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
               {invoice.transaction_id && (
                 <div className="pt-2 border-t border-stone-200 text-[11px] text-stone-500">
                   <div className="flex justify-between">
-                    <span>Payment Ref (UTR):</span>
+                    <span>{tr("Payment Ref (UTR):", language)}</span>
                     <span className="font-mono font-bold text-stone-800">{invoice.transaction_id}</span>
                   </div>
                   {invoice.paid_at && (
                     <div className="flex justify-between mt-1">
-                      <span>Paid Date:</span>
+                      <span>{tr("Paid Date:", language)}</span>
                       <span>{new Date(invoice.paid_at).toLocaleString('en-IN')}</span>
                     </div>
                   )}
@@ -382,13 +385,13 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
           {/* Authorized Signatory Footnote */}
           <div className="pt-4 border-t border-stone-200 flex flex-col sm:flex-row justify-between items-end text-xs text-stone-400 gap-4">
             <div>
-              <p className="font-semibold text-stone-600">Direct Farmer Settlement Voucher</p>
-              <p className="text-[11px]">This is a computer-generated tax invoice verified on the FarmiQ digital ledger.</p>
+              <p className="font-semibold text-stone-600">{tr("Direct Farmer Settlement Voucher", language)}</p>
+              <p className="text-[11px]">{tr("This is a computer-generated tax invoice verified on the FarmiQ digital ledger.", language)}</p>
             </div>
             <div className="text-right sm:text-right">
               <div className="border-b border-stone-300 w-36 mb-1 ml-auto"></div>
-              <p className="font-bold text-stone-700 text-xs">FarmiQ Automated Escrow</p>
-              <p className="text-[10px] text-stone-400">Authorized Digital Signature</p>
+              <p className="font-bold text-stone-700 text-xs">{tr("FarmiQ Automated Escrow", language)}</p>
+              <p className="text-[10px] text-stone-400">{tr("Authorized Digital Signature", language)}</p>
             </div>
           </div>
         </div>
@@ -400,7 +403,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
             onClick={onClose}
             className="px-4 py-2 text-xs font-semibold text-stone-600 hover:text-stone-900 transition cursor-pointer"
           >
-            Close Invoice
+            {tr("Close Invoice", language)}
           </button>
 
           <div className="flex items-center gap-2.5">
@@ -414,7 +417,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-emerald-600/20 transition flex items-center gap-2 cursor-pointer"
               >
                 <IndianRupee className="w-4 h-4" />
-                <span>Pay Now via UPI (₹{invoice.final_amount.toLocaleString('en-IN')})</span>
+                <span>{tr("Pay Now via UPI", language)} (₹{invoice.final_amount.toLocaleString('en-IN')})</span>
               </button>
             )}
             <button
@@ -423,7 +426,7 @@ FarmiQ Platform • Direct Fair Trade • FSSAI & Agri-Verified
               className="px-4 py-2 bg-stone-800 hover:bg-stone-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-sm"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Print / Save PDF</span>
+              <span>{tr("Print / Save PDF", language)}</span>
             </button>
           </div>
         </div>

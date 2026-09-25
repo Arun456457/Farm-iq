@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { User, Order, FPOLot, LanguageCode, CustomerRequirement, DigitalContract } from '../types';
 import { api } from '../api';
-import { translations } from '../translations';
+import { translations, tr, translateCrop, translateUnit } from '../translations';
 import { calculateAutomatedDistance, calculateAccurateRoadDistanceAsync, calculateDeliveryFee, AutomatedDistanceResult } from '../utils/distance';
 import { LocationPickerModal } from './LocationPickerModal';
 import { LiveTrackingModal } from './LiveTrackingModal';
@@ -448,7 +448,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
                     {user.company_name || user.full_name}
                   </h1>
                   <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-400/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1">
-                    <ShieldCheck className="w-3.5 h-3.5" /> Verified Institutional Buyer
+                    <ShieldCheck className="w-3.5 h-3.5" /> {tr('Verified Institutional Buyer', language)}
                   </span>
                 </div>
                 <p className="text-xs text-stone-400 mt-0.5">
@@ -464,15 +464,15 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
 
           <div className="flex sm:items-center gap-3 self-start md:self-auto bg-white/5 p-3 rounded-2xl border border-white/10 backdrop-blur-xs">
             <div className="text-center px-3 border-r border-white/10">
-              <span className="text-[11px] text-stone-400 uppercase tracking-wider block">Active Orders</span>
+              <span className="text-[11px] text-stone-400 uppercase tracking-wider block">{tr('Active Orders', language)}</span>
               <span className="text-xl font-bold text-amber-300">{activeOrdersCount}</span>
             </div>
             <div className="text-center px-3 border-r border-white/10">
-              <span className="text-[11px] text-stone-400 uppercase tracking-wider block">Completed</span>
+              <span className="text-[11px] text-stone-400 uppercase tracking-wider block">{tr('Completed', language)}</span>
               <span className="text-xl font-bold text-emerald-400">{deliveredOrdersCount}</span>
             </div>
             <div className="text-center px-3">
-              <span className="text-[11px] text-stone-400 uppercase tracking-wider block">Total Volume</span>
+              <span className="text-[11px] text-stone-400 uppercase tracking-wider block">{tr('Total Volume', language)}</span>
               <span className="text-xl font-bold text-teal-300">{totalVolumeProcured} Qtl</span>
             </div>
           </div>
@@ -489,7 +489,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
             className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-stone-200 transition text-xs font-semibold"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>Sync Latest Farm Status</span>
+            <span>{tr('Sync Latest Farm Status', language)}</span>
           </button>
         </div>
       </div>
@@ -526,7 +526,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
           }`}
         >
           <ShoppingBag className="w-4 h-4" />
-          <span>FPO Purchase Orders & Active Deliveries</span>
+          <span>{tr('FPO Purchase Orders & Active Deliveries', language)}</span>
           <span className={`px-2 py-0.2 rounded-full text-[10px] ${
             activeTab === 'orders' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
           }`}>
@@ -543,7 +543,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
           }`}
         >
           <Package className="w-4 h-4" />
-          <span>FPO Graded Produce Lots (Direct Procurement)</span>
+          <span>{tr('FPO Graded Produce Lots (Direct Procurement)', language)}</span>
           <span className={`px-2 py-0.2 rounded-full text-[10px] ${
             activeTab === 'fpo-lots' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
           }`}>
@@ -560,7 +560,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
           }`}
         >
           <FileText className="w-4 h-4" />
-          <span>Digital Contracts & Escrow</span>
+          <span>{tr('Digital Contracts & Escrow', language)}</span>
           <span className={`px-2 py-0.2 rounded-full text-[10px] ${
             activeTab === 'contracts' ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-700'
           }`}>
@@ -574,7 +574,7 @@ export const BuyerDashboard: React.FC<BuyerDashboardProps> = ({
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-stone-900 font-['Outfit']">Institutional Purchase Orders</h3>
+              <h3 className="text-base font-bold text-stone-900 font-['Outfit']">{tr('Institutional Purchase Orders', language)}</h3>
               <p className="text-xs text-stone-500">Live order lifecycle tracking directly synced with FPO farmers and direct logistics</p>
             </div>
             <div className="flex items-center gap-2 text-xs text-stone-600 font-medium">

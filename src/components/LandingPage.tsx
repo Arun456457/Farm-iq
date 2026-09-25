@@ -1,7 +1,7 @@
 import React from 'react';
 import { Sprout, ShoppingBag, Truck, TrendingUp, ShieldCheck, ArrowRight, UserCheck, Bot } from 'lucide-react';
 import { LanguageCode } from '../types';
-import { translations } from '../translations';
+import { translations, tr } from '../translations';
 
 interface LandingPageProps {
   language: LanguageCode;
@@ -14,7 +14,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onSelectRole,
   onOpenAuth,
 }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-b from-emerald-50/50 via-white to-stone-50 flex flex-col justify-between">
@@ -23,9 +23,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         {/* Floating badge */}
         <div className="inline-flex flex-wrap items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-3.5 py-1.5 rounded-2xl sm:rounded-full bg-emerald-100 text-emerald-900 text-xs font-bold mb-6 shadow-xs max-w-full text-center">
           <Sprout className="w-4 h-4 text-emerald-700 shrink-0" />
-          <span>{t.directHubBadge || "Direct Farmer ↔ Customer Agriculture Hub"}</span>
+          <span>{tr(t.directHubBadge || "Direct Farmer ↔ Customer Agriculture Hub", language)}</span>
           <span className="hidden sm:inline w-1.5 h-1.5 rounded-full bg-emerald-600" />
-          <span className="font-semibold text-emerald-800">{t.lowCostTransportBadge || "Low-Cost Direct Transport"}</span>
+          <span className="font-semibold text-emerald-800">{tr(t.lowCostTransportBadge || "Low-Cost Direct Transport", language)}</span>
         </div>
 
         {/* Brand Logo Emblem */}
@@ -37,13 +37,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
         {/* Title & Tagline */}
         <h1 className="text-4xl sm:text-6xl font-black text-stone-900 tracking-tight mb-4 font-['Outfit']">
-          {t.appName}
+          {tr(t.appName, language)}
         </h1>
         <p className="text-2xl sm:text-3xl font-bold text-emerald-800 mb-6 font-['Outfit'] max-w-3xl mx-auto leading-snug">
-          "{t.tagline}"
+          "{tr(t.tagline, language)}"
         </p>
         <p className="text-stone-600 text-base sm:text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
-          {t.heroDesc}
+          {tr(t.heroDesc, language)}
         </p>
 
         {/* Action Buttons */}
@@ -54,7 +54,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             className="px-6 py-3.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm shadow-md shadow-emerald-200 flex items-center gap-2 transition-transform hover:-translate-y-0.5 cursor-pointer"
           >
             <UserCheck className="w-4 h-4" />
-            {t.createAccount}
+            {tr(t.createAccount, language)}
           </button>
           <button
             id="btn-landing-login"
@@ -62,7 +62,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             className="px-6 py-3.5 rounded-xl bg-white hover:bg-stone-50 text-stone-800 font-bold text-sm border border-stone-300 shadow-xs flex items-center gap-2 transition-transform hover:-translate-y-0.5 cursor-pointer"
           >
             <UserCheck className="w-4 h-4 text-emerald-700" />
-            {t.login}
+            {tr(t.login, language)}
           </button>
         </div>
 
@@ -79,28 +79,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <Sprout className="w-7 h-7" />
             </div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-2xl font-bold text-stone-900">{t.roleFarmer}</h2>
-              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">{t.sellProduce || "Sell Produce"}</span>
+              <h2 className="text-2xl font-bold text-stone-900">{tr(t.roleFarmer, language)}</h2>
+              <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full">{tr(t.sellProduce || "Sell Produce", language)}</span>
             </div>
             <p className="text-stone-600 text-sm mb-6 leading-relaxed">
-              {t.farmerDesc}
+              {tr(t.farmerDesc, language)}
             </p>
             <ul className="space-y-2 mb-8 text-xs text-stone-600">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                {t.farmerBullet1 || "Upload produce photo with harvest date & preservation days"}
+                {tr(t.farmerBullet1 || "Upload produce photo with harvest date & preservation days", language)}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                {t.farmerBullet2 || "Compare your price side-by-side with live APMC Mandi rates"}
+                {tr(t.farmerBullet2 || "Compare your price side-by-side with live APMC Mandi rates", language)}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                {t.farmerBullet3 || "Receive direct customer orders with instant payment settlement"}
+                {tr(t.farmerBullet3 || "Receive direct customer orders with instant payment settlement", language)}
               </li>
             </ul>
             <div className="flex items-center gap-2 text-sm font-bold text-emerald-700 group-hover:text-emerald-900 transition-colors">
-              <span>{t.enterAsFarmer || "Enter as Farmer"}</span>
+              <span>{tr(t.enterAsFarmer || "Enter as Farmer", language)}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -116,28 +116,28 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <ShoppingBag className="w-7 h-7" />
             </div>
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-2xl font-bold text-stone-900">{t.roleCustomer}</h2>
-              <span className="text-xs font-bold text-teal-800 bg-teal-100 px-3 py-1 rounded-full">{t.buyFresh || "Buy Fresh"}</span>
+              <h2 className="text-2xl font-bold text-stone-900">{tr(t.roleCustomer, language)}</h2>
+              <span className="text-xs font-bold text-teal-800 bg-teal-100 px-3 py-1 rounded-full">{tr(t.buyFresh || "Buy Fresh", language)}</span>
             </div>
             <p className="text-stone-600 text-sm mb-6 leading-relaxed">
-              {t.customerDesc}
+              {tr(t.customerDesc, language)}
             </p>
             <ul className="space-y-2 mb-8 text-xs text-stone-600">
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                {t.customerBullet1 || "Select any custom quantity (e.g. 1 kg, 5 kg, 20 kg)"}
+                {tr(t.customerBullet1 || "Select any custom quantity (e.g. 1 kg, 5 kg, 20 kg)", language)}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                {t.customerBullet2 || "Affordable distance-based direct farm delivery"}
+                {tr(t.customerBullet2 || "Affordable distance-based direct farm delivery", language)}
               </li>
               <li className="flex items-center gap-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-600" />
-                {t.customerBullet3 || "Live GPS delivery tracking once the farmer accepts your order"}
+                {tr(t.customerBullet3 || "Live GPS delivery tracking once the farmer accepts your order", language)}
               </li>
             </ul>
             <div className="flex items-center gap-2 text-sm font-bold text-teal-700 group-hover:text-teal-900 transition-colors">
-              <span>{t.enterAsCustomer || "Enter as Customer"}</span>
+              <span>{tr(t.enterAsCustomer || "Enter as Customer", language)}</span>
               <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
           </div>
@@ -147,23 +147,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto pt-6 border-t border-stone-200/80">
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <TrendingUp className="w-5 h-5 text-amber-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">{t.featureFluctuationsTitle || "Live Mandi Fluctuations"}</h3>
-            <p className="text-[11px] text-stone-600 mt-1">{t.featureFluctuationsDesc || "Real-time modal prices and arrival tonnes across 20+ APMCs."}</p>
+            <h3 className="text-xs font-bold text-stone-900">{tr(t.featureFluctuationsTitle || "Live Mandi Fluctuations", language)}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{tr(t.featureFluctuationsDesc || "Real-time modal prices and arrival tonnes across 20+ APMCs.", language)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <Truck className="w-5 h-5 text-emerald-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">{t.featureLogisticsTitle || "Direct Farm Logistics"}</h3>
-            <p className="text-[11px] text-stone-600 mt-1">{t.featureLogisticsDesc || "Fair delivery charges calculated automatically by distance."}</p>
+            <h3 className="text-xs font-bold text-stone-900">{tr(t.featureLogisticsTitle || "Direct Farm Logistics", language)}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{tr(t.featureLogisticsDesc || "Fair delivery charges calculated automatically by distance.", language)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <ShieldCheck className="w-5 h-5 text-blue-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">{t.featureOversellingTitle || "Prevent Overselling"}</h3>
-            <p className="text-[11px] text-stone-600 mt-1">{t.featureOversellingDesc || "Atomic inventory locking protects farmers and buyers."}</p>
+            <h3 className="text-xs font-bold text-stone-900">{tr(t.featureOversellingTitle || "Prevent Overselling", language)}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{tr(t.featureOversellingDesc || "Atomic inventory locking protects farmers and buyers.", language)}</p>
           </div>
           <div className="bg-white p-4 rounded-xl border border-stone-200/60 shadow-2xs text-left">
             <Bot className="w-5 h-5 text-purple-600 mb-2" />
-            <h3 className="text-xs font-bold text-stone-900">{t.featureAiTitle || "Kisan Mitra AI Assistant"}</h3>
-            <p className="text-[11px] text-stone-600 mt-1">{t.featureAiDesc || "Smart advisor for crop diseases, market timing, and shelf life."}</p>
+            <h3 className="text-xs font-bold text-stone-900">{tr(t.featureAiTitle || "Kisan Mitra AI Assistant", language)}</h3>
+            <p className="text-[11px] text-stone-600 mt-1">{tr(t.featureAiDesc || "Smart advisor for crop diseases, market timing, and shelf life.", language)}</p>
           </div>
         </div>
       </section>
@@ -174,10 +174,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="flex items-center gap-2">
             <Sprout className="w-4 h-4 text-emerald-700" />
             <span className="font-semibold text-stone-700">FarmiQ</span>
-            <span>— {t.footerTagline || "Sustainable Agricultural Logistics & Marketplace"}</span>
+            <span>— {tr(t.footerTagline || "Sustainable Agricultural Logistics & Marketplace", language)}</span>
           </div>
           <div className="flex items-center gap-4">
-            <span>{t.footerVersion || "Version 2.0 (Python + React)"}</span>
+            <span>{tr(t.footerVersion || "Version 2.0 (Python + React)", language)}</span>
           </div>
         </div>
       </footer>

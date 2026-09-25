@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Smartphone, Monitor, X, Check, Share2, PlusSquare, ArrowRight, ShieldCheck } from 'lucide-react';
+import { LanguageCode } from '../types';
+import { tr } from '../translations';
 
 interface InstallAppModalProps {
   isOpen: boolean;
   onClose: () => void;
   deferredPrompt: any;
   onInstallSuccess?: () => void;
+  language?: LanguageCode;
 }
 
 export const InstallAppModal: React.FC<InstallAppModalProps> = ({
@@ -13,6 +16,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
   onClose,
   deferredPrompt,
   onInstallSuccess,
+  language = 'en',
 }) => {
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -77,16 +81,16 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-200 bg-emerald-900/60 px-2 py-0.5 rounded-full border border-emerald-500/40">
-                  PWA Mobile & Desktop
+                  {tr("PWA Mobile & Desktop", language)}
                 </span>
               </div>
               <h2 className="text-xl font-black tracking-tight text-white font-['Outfit'] mt-0.5">
-                Install FarmiQ
+                {tr("Install FarmiQ", language)}
               </h2>
             </div>
           </div>
           <p className="text-xs text-emerald-100/90 leading-relaxed mt-1">
-            Install FarmiQ on your device for direct 1-tap access, real-time mandi rate updates, full-screen speed, and zero browser tabs!
+            {tr("Install FarmiQ on your device for direct 1-tap access, real-time mandi rate updates, full-screen speed, and zero browser tabs!", language)}
           </p>
         </div>
 
@@ -97,15 +101,15 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl flex items-start gap-2">
               <Check className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-emerald-950">Fast 1-Tap Launch</p>
-                <p className="text-[11px] text-stone-600">Home screen or desktop icon</p>
+                <p className="font-bold text-emerald-950">{tr("Fast 1-Tap Launch", language)}</p>
+                <p className="text-[11px] text-stone-600">{tr("Home screen or desktop icon", language)}</p>
               </div>
             </div>
             <div className="p-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl flex items-start gap-2">
               <Check className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
               <div>
-                <p className="font-bold text-emerald-950">Full-Screen View</p>
-                <p className="text-[11px] text-stone-600">No URL bars or sliding</p>
+                <p className="font-bold text-emerald-950">{tr("Full-Screen View", language)}</p>
+                <p className="text-[11px] text-stone-600">{tr("No URL bars or sliding", language)}</p>
               </div>
             </div>
           </div>
@@ -115,17 +119,17 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-2.5">
               <p className="font-bold text-amber-900 flex items-center gap-1.5 text-xs">
                 <Smartphone className="w-4 h-4 text-amber-700" />
-                iOS Safari Install Instructions:
+                {tr("iOS Safari Install Instructions:", language)}
               </p>
               <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-amber-950 font-medium leading-relaxed">
                 <li>
-                  Tap the <strong className="inline-flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-amber-300"><Share2 className="w-3 h-3 inline" /> Share</strong> button at the bottom of Safari.
+                  {tr("Tap the Share button at the bottom of Safari.", language)}
                 </li>
                 <li>
-                  Scroll down and tap <strong className="inline-flex items-center gap-1 bg-white px-1.5 py-0.5 rounded border border-amber-300"><PlusSquare className="w-3 h-3 inline" /> Add to Home Screen</strong>.
+                  {tr("Scroll down and tap Add to Home Screen.", language)}
                 </li>
                 <li>
-                  Tap <strong className="bg-white px-1.5 py-0.5 rounded border border-amber-300">Add</strong> at the top right to install!
+                  {tr("Tap Add at the top right to install!", language)}
                 </li>
               </ol>
             </div>
@@ -134,16 +138,16 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               <div className="flex items-center justify-between text-[11px] font-semibold text-stone-700">
                 <span className="flex items-center gap-1.5">
                   <Monitor className="w-3.5 h-3.5 text-emerald-700" />
-                  Desktop (Windows / Mac)
+                  {tr("Desktop (Windows / Mac)", language)}
                 </span>
-                <span className="text-emerald-700 font-bold">1-Click Install</span>
+                <span className="text-emerald-700 font-bold">{tr("1-Click Install", language)}</span>
               </div>
               <div className="flex items-center justify-between text-[11px] font-semibold text-stone-700 border-t border-stone-200 pt-2">
                 <span className="flex items-center gap-1.5">
                   <Smartphone className="w-3.5 h-3.5 text-emerald-700" />
-                  Mobile (Android Chrome)
+                  {tr("Mobile (Android Chrome)", language)}
                 </span>
-                <span className="text-emerald-700 font-bold">Native App Icon</span>
+                <span className="text-emerald-700 font-bold">{tr("Native App Icon", language)}</span>
               </div>
             </div>
           )}
@@ -158,7 +162,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
                 className="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-emerald-200 transition-all cursor-pointer active:scale-98"
               >
                 <Download className="w-4 h-4" />
-                <span>{isInstalling ? 'Installing...' : 'Install App Now'}</span>
+                <span>{isInstalling ? tr("Installing...", language) : tr("Install App Now", language)}</span>
               </button>
             )}
 
@@ -172,7 +176,7 @@ export const InstallAppModal: React.FC<InstallAppModalProps> = ({
               }}
               className="py-3 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs transition cursor-pointer text-center"
             >
-              {isIOS ? 'Got It, Close' : 'Maybe Later'}
+              {isIOS ? tr("Got It, Close", language) : tr("Maybe Later", language)}
             </button>
           </div>
         </div>

@@ -3,16 +3,18 @@ import {
   X, Truck, MapPin, Phone, User, CheckCircle2, Clock, ShieldCheck, 
   ThermometerSnowflake, Navigation, Check, PackageCheck, FileText, Sparkles, HelpCircle
 } from 'lucide-react';
-import { Order } from '../types';
+import { Order, LanguageCode } from '../types';
 import { api } from '../api';
+import { tr, translateCrop, translateUnit } from '../translations';
 
 interface LiveTrackingModalProps {
   order: Order | null;
   onClose: () => void;
   onOpenInvoice?: (order: Order) => void;
+  language?: LanguageCode;
 }
 
-export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onClose, onOpenInvoice }) => {
+export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onClose, onOpenInvoice, language = 'en' }) => {
   const [trackingData, setTrackingData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -102,25 +104,25 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
             {isDelivered ? (
               <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[11px] font-bold border border-emerald-300/40 flex items-center gap-1.5">
                 <PackageCheck className="w-3.5 h-3.5 text-emerald-300" />
-                DELIVERED TO DOORSTEP
+                {tr("DELIVERED TO DOORSTEP", language)}
               </span>
             ) : (
               <div className="flex items-center gap-2">
                 <Truck className="w-5 h-5 text-emerald-300 animate-bounce" />
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-200">
-                  Live Farm Logistics Tracking
+                  {tr("Live Farm Logistics Tracking", language)}
                 </span>
               </div>
             )}
           </div>
           
           <h2 className="text-xl font-bold font-['Outfit']">
-            Order #{order.id}: {order.product_name}
+            {tr("Order", language)} #{order.id}: {translateCrop(order.product_name, language)}
           </h2>
           <p className="text-xs text-emerald-100 mt-0.5">
             {isDelivered 
-              ? `Directly fulfilled from ${order.farmer_name}'s Farm` 
-              : `From ${order.farmer_name}'s Farm to ${order.delivery_address}`}
+              ? `${tr("Directly fulfilled from", language)} ${order.farmer_name}'s Farm` 
+              : `${tr("From", language)} ${order.farmer_name}'s Farm ${tr("to", language)} ${order.delivery_address}`}
           </p>
         </div>
 
@@ -135,18 +137,18 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="text-base font-extrabold text-emerald-950 font-['Outfit']">
-                      Delivered Successfully!
+                      {tr("Delivered Successfully!", language)}
                     </h3>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900">
-                      Verified ✓
+                      {tr("Verified ✓", language)}
                     </span>
                   </div>
                   <p className="text-xs text-emerald-800 mt-0.5">
-                    Your fresh farm produce was safely handed over at your doorstep.
+                    {tr("Your fresh farm produce was safely handed over at your doorstep.", language)}
                   </p>
                   <div className="flex items-center gap-2 mt-2 text-[11px] font-semibold text-emerald-900 bg-white/80 px-2.5 py-1 rounded-lg border border-emerald-200/80 w-fit">
                     <Clock className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>Delivered on: {formatDeliveredTime(trackingData?.delivered_at || order.delivered_at)}</span>
+                    <span>{tr("Delivered on:", language)} {formatDeliveredTime(trackingData?.delivered_at || order.delivered_at)}</span>
                   </div>
                 </div>
               </div>
@@ -154,15 +156,15 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
               {/* Produce Receipt Capsule */}
               <div className="p-3 bg-white rounded-xl border border-emerald-200 text-xs grid grid-cols-2 gap-2">
                 <div>
-                  <span className="text-[10px] text-stone-500 font-medium block">Item & Quantity</span>
-                  <span className="font-bold text-stone-900">{order.quantity} {order.unit || 'kg'} {order.product_name}</span>
+                  <span className="text-[10px] text-stone-500 font-medium block">{tr("Item & Quantity", language)}</span>
+                  <span className="font-bold text-stone-900">{order.quantity} {translateUnit(order.unit || 'kg', language)} {translateCrop(order.product_name, language)}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-stone-500 font-medium block">Total Paid (UPI)</span>
-                  <span className="font-bold text-emerald-700">₹{order.grand_total} (Delivery included)</span>
+                  <span className="text-[10px] text-stone-500 font-medium block">{tr("Total Paid (UPI)", language)}</span>
+                  <span className="font-bold text-emerald-700">₹{order.grand_total}</span>
                 </div>
                 <div className="col-span-2 pt-1 border-t border-stone-100">
-                  <span className="text-[10px] text-stone-500 font-medium block">Destination Address</span>
+                  <span className="text-[10px] text-stone-500 font-medium block">{tr("Destination Address", language)}</span>
                   <span className="font-semibold text-stone-800 text-[11px] truncate block">
                     {order.delivery_address}
                   </span>
@@ -180,7 +182,7 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                   <Navigation className="w-3 h-3 animate-spin" /> GPS Live: 18.5204° N, 73.8567° E
                 </span>
                 <span className="px-2 py-1 rounded bg-emerald-900/80 text-emerald-200 font-bold text-[11px] flex items-center gap-1">
-                  <ThermometerSnowflake className="w-3 h-3 text-cyan-300" /> Cold-Chain 4°C
+                  <ThermometerSnowflake className="w-3 h-3 text-cyan-300" /> {tr("Cold-Chain 4°C", language)}
                 </span>
               </div>
 
@@ -197,21 +199,21 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                   />
                 </div>
                 <div className="flex justify-between text-[10px] text-stone-400 mt-2">
-                  <span>Farm Gate (Origin)</span>
-                  <span className="text-emerald-400 font-semibold">{order.distance_km || 12} km direct corridor</span>
-                  <span>Customer Doorstep</span>
+                  <span>{tr("Farm Gate (Origin)", language)}</span>
+                  <span className="text-emerald-400 font-semibold">{order.distance_km || 12} {tr("km away", language)}</span>
+                  <span>{tr("Customer Doorstep", language)}</span>
                 </div>
               </div>
 
               <div className="relative z-10 flex items-center justify-between text-xs bg-black/60 backdrop-blur-xs p-2 rounded-lg text-white">
                 <div>
-                  <p className="text-[10px] text-stone-400">Current Status</p>
-                  <p className="font-bold text-emerald-300">{order.status}</p>
+                  <p className="text-[10px] text-stone-400">{tr("Current Status", language)}</p>
+                  <p className="font-bold text-emerald-300">{tr(order.status, language)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] text-stone-400">Estimated Arrival</p>
+                  <p className="text-[10px] text-stone-400">{tr("Estimated Arrival", language)}</p>
                   <p className="font-bold text-amber-300">
-                    ~{trackingData?.eta_minutes || 25} mins remaining
+                    ~{trackingData?.eta_minutes || 25} {tr("mins remaining", language)}
                   </p>
                 </div>
               </div>
@@ -224,9 +226,9 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
               <div className="flex items-center justify-between text-xs font-semibold text-stone-700 mb-1.5">
                 <span className="flex items-center gap-1 text-emerald-800">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Direct Highway Farm Corridor ({order.distance_km || 12} km)
+                  {tr("Direct Highway Farm Corridor", language)} ({order.distance_km || 12} km)
                 </span>
-                <span className="text-emerald-700 font-bold">100% Completed</span>
+                <span className="text-emerald-700 font-bold">100% {tr("Completed", language)}</span>
               </div>
               <div className="h-2 w-full bg-stone-200 rounded-full overflow-hidden">
                 <div className="h-full w-full bg-emerald-600 rounded-full" />
@@ -234,7 +236,7 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
               <div className="flex justify-between text-[10px] text-stone-500 mt-1.5 font-medium">
                 <span>Nashik / Farm Gate</span>
                 <span>Mandi Sealed</span>
-                <span>Pune Doorstep</span>
+                <span>Customer Doorstep</span>
               </div>
             </div>
           )}
@@ -257,25 +259,25 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                           ? 'bg-blue-100 text-blue-800' 
                           : 'bg-emerald-100 text-emerald-800'
                       }`}>
-                        {trackingData.delivery_agent_assigned ? 'Designated Delivery Agent' : 'Farmer Direct Dispatch'}
+                        {trackingData.delivery_agent_assigned ? tr("Designated Delivery Agent", language) : tr("Farmer Direct Dispatch", language)}
                       </span>
                     </div>
                     <p className="text-[11px] text-stone-500 mt-0.5">
-                      {trackingData.vehicle_number ? `Vehicle: ${trackingData.vehicle_number} • ` : ''}
-                      Seller: <strong className="text-stone-700">{trackingData?.farmer_name || order.farmer_name || 'Farmer'}</strong>
+                      {trackingData.vehicle_number ? `${tr("Vehicle:", language)} ${trackingData.vehicle_number} • ` : ''}
+                      {tr("Seller:", language)} <strong className="text-stone-700">{trackingData?.farmer_name || order.farmer_name || tr('Farmer', language)}</strong>
                     </p>
                   </>
                 ) : (
                   <>
                     <p className="font-bold text-stone-900">
                       {isDelivered 
-                        ? "Direct Farm Delivery Completed" 
+                        ? tr("Direct Farm Delivery Completed", language) 
                         : currentStatus === 'TRANSIT' 
-                          ? "Direct Farm Logistics Dispatch" 
-                          : "Farm Gate Packaging & Dispatch"}
+                          ? tr("Direct Farm Logistics Dispatch", language) 
+                          : tr("Farm Gate Packaging & Dispatch", language)}
                     </p>
                     <p className="text-[11px] text-stone-500">
-                      Seller: <strong className="text-stone-700">{trackingData?.farmer_name || order.farmer_name || 'Assigned Farmer'}</strong> {order.farmer_location ? `(${order.farmer_location})` : ''}
+                      {tr("Seller:", language)} <strong className="text-stone-700">{trackingData?.farmer_name || order.farmer_name || tr('Assigned Farmer', language)}</strong> {order.farmer_location ? `(${order.farmer_location})` : ''}
                     </p>
                   </>
                 )}
@@ -284,14 +286,14 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
             
             {isDelivered ? (
               <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-[11px] flex items-center gap-1">
-                <Check className="w-3 h-3" /> Delivered
+                <Check className="w-3 h-3" /> {tr("Delivered", language)}
               </span>
             ) : trackingData?.driver_phone ? (
               <a 
                 href={`tel:${trackingData.driver_phone}`}
                 className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold flex items-center gap-1.5 hover:bg-emerald-800 transition cursor-pointer text-xs"
               >
-                <Phone className="w-3.5 h-3.5" /> Call Delivery Agent
+                <Phone className="w-3.5 h-3.5" /> {tr("Call Delivery Agent", language)}
               </a>
             ) : (trackingData?.farmer_phone || order.farmer_phone) ? (
               <a 
@@ -299,20 +301,20 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                 className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold flex items-center gap-1.5 hover:bg-emerald-800 transition cursor-pointer text-xs"
                 title="Direct Farmer Helpline"
               >
-                <Phone className="w-3.5 h-3.5" /> Call Farmer
+                <Phone className="w-3.5 h-3.5" /> {tr("Call Farmer", language)}
               </a>
             ) : (
-              <span className="text-[10px] text-stone-400 font-medium">In Transit</span>
+              <span className="text-[10px] text-stone-400 font-medium">{tr("In Transit", language)}</span>
             )}
           </div>
 
           {/* Checkpoints / Timeline */}
           <div>
             <h4 className="text-xs font-bold text-stone-800 mb-3 uppercase tracking-wider flex items-center justify-between">
-              <span>{isDelivered ? 'Delivery Journey Milestones' : 'Transit Milestones'}</span>
+              <span>{isDelivered ? tr("Delivery Journey Milestones", language) : tr("Transit Milestones", language)}</span>
               {isDelivered && (
                 <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                  5/5 Completed
+                  5/5 {tr("Completed", language)}
                 </span>
               )}
             </h4>
@@ -328,10 +330,10 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                     </div>
                     <div className="flex-1 flex items-center justify-between">
                       <span className={completed ? 'font-bold text-stone-900' : 'text-stone-500'}>
-                        {cp.title}
+                        {tr(cp.title, language)}
                       </span>
                       <span className={`text-[11px] font-mono ${completed ? 'text-emerald-700 font-semibold' : 'text-stone-400'}`}>
-                        {cp.time}
+                        {tr(cp.time, language)}
                       </span>
                     </div>
                   </div>
@@ -352,7 +354,7 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                 className="flex-1 py-2.5 rounded-xl border border-stone-300 hover:bg-stone-50 text-stone-800 font-bold text-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <FileText className="w-3.5 h-3.5 text-stone-600" />
-                <span>View Tax Invoice</span>
+                <span>{tr("View Tax Invoice", language)}</span>
               </button>
             )}
             <button
@@ -363,7 +365,7 @@ export const LiveTrackingModal: React.FC<LiveTrackingModalProps> = ({ order, onC
                   : 'w-full bg-emerald-700 hover:bg-emerald-800 text-white'
               }`}
             >
-              Close
+              {tr("Close", language)}
             </button>
           </div>
         </div>

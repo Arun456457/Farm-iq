@@ -418,6 +418,7 @@ export default function App() {
         isOpen={isGlobalLocationPickerOpen}
         onClose={() => setIsGlobalLocationPickerOpen(false)}
         user={user}
+        language={language}
         onAddressSaved={(newAddr) => {
           if (user) {
             const updated = { ...user, delivery_address: newAddr, location: newAddr };
@@ -435,6 +436,7 @@ export default function App() {
         invoice={globalInvoice}
         order={globalInvoiceOrder}
         isCustomer={user?.role === 'customer'}
+        language={language}
         onPayNow={() => {
           if (globalInvoice) {
             handleOpenGlobalPayNow(globalInvoice.order_id);
@@ -447,6 +449,7 @@ export default function App() {
         isOpen={isGlobalUPIOpen}
         onClose={() => setIsGlobalUPIOpen(false)}
         order={globalPayOrder}
+        language={language}
         onPaymentSuccess={() => {
           triggerSync();
         }}
@@ -456,6 +459,7 @@ export default function App() {
       {!isAppInstalled && (
         <InstallAppModal
           isOpen={isInstallModalOpen}
+          language={language}
           onClose={() => {
             setIsInstallModalOpen(false);
             sessionStorage.setItem('farmiq_install_dismissed', 'true');
@@ -473,6 +477,7 @@ export default function App() {
       {isGlobalTrackingOpen && globalTrackingOrder && (
         <LiveTrackingModal
           order={globalTrackingOrder}
+          language={language}
           onClose={() => {
             setIsGlobalTrackingOpen(false);
             setGlobalTrackingOrder(null);
@@ -485,6 +490,7 @@ export default function App() {
         isOpen={isEditProfileOpen}
         onClose={() => setIsEditProfileOpen(false)}
         user={user}
+        language={language}
         onUserUpdated={handleUserUpdated}
         onOpenLocationPicker={() => setIsGlobalLocationPickerOpen(true)}
       />

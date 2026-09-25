@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { User } from '../types';
 import { api, setStoredUser } from '../api';
+import { tr, LanguageCode } from '../translations';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface EditProfileModalProps {
   user: User | null;
   onUserUpdated: (updatedUser: User) => void;
   onOpenLocationPicker?: () => void;
+  language?: LanguageCode;
 }
 
 export const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -21,6 +23,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
   user,
   onUserUpdated,
   onOpenLocationPicker,
+  language = 'en',
 }) => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -150,12 +153,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base font-['Outfit'] text-white">Edit Profile</h3>
+                <h3 className="font-bold text-base font-['Outfit'] text-white">{tr('Edit Profile', language)}</h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/20 text-emerald-100 border border-white/20">
-                  {user.role}
+                  {tr(user.role, language)}
                 </span>
               </div>
-              <p className="text-[11px] text-emerald-100">Update your account information & direct details</p>
+              <p className="text-[11px] text-emerald-100">{tr('Update your account information & direct details', language)}</p>
             </div>
           </div>
           <button
@@ -188,7 +191,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Full Name */}
           <div>
             <label className="block font-bold text-stone-700 mb-1">
-              Full Name <span className="text-rose-500">*</span>
+              {tr('Full Name', language)} <span className="text-rose-500">*</span>
             </label>
             <div className="relative flex items-center">
               <UserIcon className="w-4 h-4 absolute left-3 text-stone-400 pointer-events-none" />
@@ -197,7 +200,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your full name"
+                placeholder={tr('Full Name', language)}
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none transition font-medium"
               />
             </div>
@@ -207,9 +210,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-bold text-stone-700">
-                Phone Number (WhatsApp Active) <span className="text-rose-500">*</span>
+                {tr('Phone Number (WhatsApp Active)', language)} <span className="text-rose-500">*</span>
               </label>
-              <span className="text-[10px] text-emerald-700 font-semibold">📲 For WhatsApp alerts</span>
+              <span className="text-[10px] text-emerald-700 font-semibold">📲 {tr('For WhatsApp alerts', language)}</span>
             </div>
             <div className="relative flex items-center">
               <Phone className="w-4 h-4 absolute left-3 text-stone-400 pointer-events-none" />
@@ -218,7 +221,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="+91 98765 43210 or 10-digit mobile"
+                placeholder="+91 98765 43210"
                 className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-stone-300 bg-white text-stone-900 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100 outline-none transition font-medium"
               />
             </div>
@@ -227,7 +230,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Email Address */}
           <div>
             <label className="block font-bold text-stone-700 mb-1">
-              Email Address <span className="text-rose-500">*</span>
+              {tr('Email Address', language)} <span className="text-rose-500">*</span>
             </label>
             <div className="relative flex items-center">
               <Mail className="w-4 h-4 absolute left-3 text-stone-400 pointer-events-none" />
@@ -246,7 +249,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {user.role === 'farmer' && (
             <div>
               <label className="block font-bold text-stone-700 mb-1">
-                Farm / Orchard Name
+                {tr('Farm / Orchard Name', language)}
               </label>
               <div className="relative flex items-center">
                 <Building2 className="w-4 h-4 absolute left-3 text-stone-400 pointer-events-none" />
@@ -265,7 +268,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {user.role === 'buyer' && (
             <div>
               <label className="block font-bold text-stone-700 mb-1">
-                Company / Organization Name
+                {tr('Company / Organization Name', language)}
               </label>
               <div className="relative flex items-center">
                 <Building2 className="w-4 h-4 absolute left-3 text-stone-400 pointer-events-none" />
@@ -284,7 +287,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-bold text-stone-700">
-                {user.role === 'farmer' ? 'Farm Location (Village / Mandi Area)' : 'Primary City / Location'}
+                {user.role === 'farmer' ? tr('Farm Location (Village / Mandi Area)', language) : tr('Primary City / Location', language)}
               </label>
               <div className="flex items-center gap-2">
                 <button
@@ -294,7 +297,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                   className="text-[10px] text-emerald-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                 >
                   <Navigation className={`w-3 h-3 ${detectingGps ? 'animate-spin' : ''}`} />
-                  <span>{detectingGps ? 'Detecting...' : 'Auto GPS'}</span>
+                  <span>{detectingGps ? tr('Detecting...', language) : tr('Auto GPS', language)}</span>
                 </button>
                 {onOpenLocationPicker && (
                   <button
@@ -305,7 +308,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
                     }}
                     className="text-[10px] text-teal-700 font-bold hover:underline flex items-center gap-0.5 cursor-pointer"
                   >
-                    <span>Pick on Map</span>
+                    <span>{tr('Pick on Map', language)}</span>
                   </button>
                 )}
               </div>
@@ -326,7 +329,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {user.role === 'customer' && (
             <div>
               <label className="block font-bold text-stone-700 mb-1">
-                Default Doorstep Delivery Address
+                {tr('Default Doorstep Delivery Address', language)}
               </label>
               <textarea
                 rows={2}
@@ -342,9 +345,9 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="font-bold text-stone-700">
-                UPI ID {user.role === 'farmer' ? '(For Receiving Customer Payments)' : '(For Quick UPI Payments)'}
+                {tr('UPI ID', language)}
               </label>
-              <span className="text-[10px] text-emerald-700 font-semibold">Instant UPI Payouts</span>
+              <span className="text-[10px] text-emerald-700 font-semibold">{tr('Instant UPI Payouts', language)}</span>
             </div>
             <div className="relative flex items-center">
               <IndianRupee className="w-4 h-4 absolute left-3 text-stone-400 pointer-events-none" />
@@ -365,7 +368,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               onClick={onClose}
               className="flex-1 py-2.5 rounded-xl border border-stone-300 text-stone-700 font-bold text-xs hover:bg-stone-50 transition cursor-pointer"
             >
-              Cancel
+              {tr('Cancel', language)}
             </button>
             <button
               type="submit"
@@ -375,12 +378,12 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving Changes...</span>
+                  <span>{tr('Saving Changes...', language)}</span>
                 </>
               ) : (
                 <>
                   <Check className="w-4 h-4" />
-                  <span>Save Changes</span>
+                  <span>{tr('Save Changes', language)}</span>
                 </>
               )}
             </button>
