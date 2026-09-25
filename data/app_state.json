@@ -1462,7 +1462,8 @@
       "created_at": "2026-09-22T16:10:14.209Z",
       "delivery_confirmed": true,
       "delivery_confirmed_at": "2026-09-22T16:10:14.226Z",
-      "settlement_transaction_id": "ESC-SETTLE-414226"
+      "settlement_transaction_id": "ESC-SETTLE-414226",
+      "admin_approval_status": "APPROVED"
     },
     {
       "id": "CON-149",
@@ -1490,7 +1491,8 @@
       "created_at": "2026-09-22T15:32:27.835Z",
       "delivery_confirmed": true,
       "delivery_confirmed_at": "2026-09-22T15:32:27.854Z",
-      "settlement_transaction_id": "ESC-SETTLE-147854"
+      "settlement_transaction_id": "ESC-SETTLE-147854",
+      "admin_approval_status": "APPROVED"
     },
     {
       "id": "CON-120",
@@ -1515,7 +1517,8 @@
       "admin_monetization_fee": 5400,
       "net_farmer_payout": 354600,
       "escrow_transaction_id": "ESC-TXN-102895",
-      "created_at": "2026-09-22T15:31:42.895Z"
+      "created_at": "2026-09-22T15:31:42.895Z",
+      "admin_approval_status": "APPROVED"
     },
     {
       "id": "CON-LOT-344",
@@ -1534,7 +1537,9 @@
       "status": "ACCEPTED_IN_ESCROW",
       "assigned_farmer_id": 1002,
       "assigned_farmer_name": "Arun (Lead Aggregator)",
-      "created_at": "2026-09-21T09:39:03.684Z"
+      "created_at": "2026-09-21T09:39:03.684Z",
+      "escrow_status": "NOT_FUNDED",
+      "admin_approval_status": "NOT_APPLICABLE"
     },
     {
       "id": "CON-LOT-355",
@@ -1553,7 +1558,17 @@
       "status": "ACCEPTED_IN_ESCROW",
       "assigned_farmer_id": 1006,
       "assigned_farmer_name": "akshaya (Lead Aggregator)",
-      "created_at": "2026-09-21T09:20:15.988Z"
+      "created_at": "2026-09-21T09:20:15.988Z",
+      "escrow_status": "REFUNDED_TO_BUYER",
+      "admin_approval_status": "REJECTED",
+      "escrow_funded": true,
+      "escrow_payment_mode": "SIMULATED_SANDBOX",
+      "escrow_utr": "ESC-UTR-48839752",
+      "escrow_transaction_id": "ESC-UTR-48839752",
+      "escrow_deposited_at": "2026-09-25T15:07:19.752Z",
+      "admin_rejection_reason": "Verification discrepancy or rejected by Admin",
+      "admin_rejected_at": "2026-09-25T15:07:42.150Z",
+      "refund_transaction_id": "REF-UPI-48862150"
     },
     {
       "id": "CON-LOT-865",
@@ -1569,10 +1584,24 @@
       "delivery_location": "Sector 19, Central Cold Chain Depot, APMC Vashi, Navi Mumbai - 400703",
       "delivery_deadline": "2026-09-28",
       "terms": "100% Escrow deposit locked by Metro Wholesale Hub Ltd. Payment released within 24h of weighment & quality approval.",
-      "status": "ACCEPTED_IN_ESCROW",
+      "status": "COMPLETED",
       "assigned_farmer_id": 1002,
       "assigned_farmer_name": "Arun (Lead Aggregator)",
-      "created_at": "2026-09-21T09:12:33.611Z"
+      "created_at": "2026-09-21T09:12:33.611Z",
+      "escrow_status": "RELEASED_TO_FARMER",
+      "admin_approval_status": "APPROVED",
+      "escrow_funded": true,
+      "escrow_payment_mode": "SIMULATED_SANDBOX",
+      "escrow_utr": "ESC-UTR-48781284",
+      "escrow_transaction_id": "ESC-UTR-48781284",
+      "escrow_deposited_at": "2026-09-25T15:06:21.284Z",
+      "admin_approval_notes": "Escrow funds verified by FarmIQ Admin. Guaranteed payout locked in vault.",
+      "admin_approved_at": "2026-09-25T15:06:39.431Z",
+      "buyer_confirmed_delivery": true,
+      "buyer_confirmed_at": "2026-09-25T15:06:58.783Z",
+      "delivery_confirmed": true,
+      "admin_released_at": "2026-09-25T15:07:07.042Z",
+      "settlement_transaction_id": "ESC-SETTLE-827042"
     }
   ],
   "disputes": [
@@ -2360,6 +2389,103 @@
   ],
   "notifications": [
     {
+      "id": "NOTIF-REFUND-1790348862150",
+      "recipient_id": 1010,
+      "type": "ESCROW_REFUNDED",
+      "title": "↩️ Escrow Payment Rejected & Refunded",
+      "message": "Admin rejected escrow for Contract #CON-LOT-355: \"Verification discrepancy or rejected by Admin\". ₹0 has been refunded to your original payment source. Refund UTR: REF-UPI-48862150",
+      "contract_id": "CON-LOT-355",
+      "time": "2026-09-25T15:07:42.150Z",
+      "status": "UNREAD",
+      "requires_action": false,
+      "created_at": "2026-09-25T15:07:42.150Z"
+    },
+    {
+      "id": "NOTIF-ADM-1790348839752",
+      "recipient_id": 99,
+      "type": "ESCROW_DEPOSIT_PENDING",
+      "title": "💰 New Escrow Deposit Awaiting Approval",
+      "message": "Buyer \"s-mart\" submitted ₹0 escrow via SIMULATED_SANDBOX (Ref: ESC-UTR-48839752) for Contract #CON-LOT-355. Please Review and Accept/Reject.",
+      "contract_id": "CON-LOT-355",
+      "time": "2026-09-25T15:07:19.752Z",
+      "status": "UNREAD",
+      "requires_action": true,
+      "created_at": "2026-09-25T15:07:19.752Z"
+    },
+    {
+      "id": "NOTIF-PAY-REL-1790348827042",
+      "recipient_id": 1002,
+      "type": "ESCROW_PAYMENT_RELEASED",
+      "title": "💰 Escrow Payment Released to Your Account!",
+      "message": "Admin has released your escrow payment of ₹2,12,760 for Contract #CON-LOT-865 to your UPI/Bank (9133144324@ybl). UTR: ESC-SETTLE-827042",
+      "contract_id": "CON-LOT-865",
+      "amount": 212760,
+      "time": "2026-09-25T15:07:07.042Z",
+      "status": "UNREAD",
+      "requires_action": false,
+      "created_at": "2026-09-25T15:07:07.042Z"
+    },
+    {
+      "id": "NOTIF-FARM-DELIV-1790348818783",
+      "recipient_id": 1002,
+      "type": "BUYER_CONFIRMED_DELIVERY",
+      "title": "✅ Buyer Confirmed Order Receipt",
+      "message": "Buyer \"Metro Wholesale Hub Ltd\" confirmed produce receipt for Contract #CON-LOT-865. Admin will now release your escrow funds to your account.",
+      "contract_id": "CON-LOT-865",
+      "time": "2026-09-25T15:06:58.783Z",
+      "status": "UNREAD",
+      "requires_action": false,
+      "created_at": "2026-09-25T15:06:58.783Z"
+    },
+    {
+      "id": "NOTIF-ADM-DELIV-1790348818783",
+      "recipient_id": 99,
+      "type": "BUYER_DELIVERY_CONFIRMED",
+      "title": "📦 Order Received & Confirmed by Verified Buyer!",
+      "message": "Buyer \"Metro Wholesale Hub Ltd\" has confirmed receipt of produce for Contract #CON-LOT-865. Escrow payout of ₹0 is ready to be released to farmer Arun (Lead Aggregator).",
+      "contract_id": "CON-LOT-865",
+      "time": "2026-09-25T15:06:58.783Z",
+      "status": "UNREAD",
+      "requires_action": true,
+      "created_at": "2026-09-25T15:06:58.783Z"
+    },
+    {
+      "id": "NOTIF-BUYER-1790348799431",
+      "recipient_id": 1009,
+      "type": "ESCROW_APPROVED",
+      "title": "🔒 Escrow Deposit Accepted by Admin",
+      "message": "Admin has verified and locked your escrow deposit for Contract #CON-LOT-865. Farmer has been authorized to proceed with delivery.",
+      "contract_id": "CON-LOT-865",
+      "time": "2026-09-25T15:06:39.431Z",
+      "status": "UNREAD",
+      "requires_action": false,
+      "created_at": "2026-09-25T15:06:39.431Z"
+    },
+    {
+      "id": "NOTIF-FPO-1790348799431",
+      "recipient_id": 1002,
+      "type": "ESCROW_FPO_GUARANTEE",
+      "title": "🛡️ ESCROW FPO GUARANTEE: Payment Verified & Locked in Vault!",
+      "message": "Admin has verified and locked 100% escrow funds (₹0) for Contract #CON-LOT-865. You can now safely harvest and dispatch produce!",
+      "contract_id": "CON-LOT-865",
+      "time": "2026-09-25T15:06:39.431Z",
+      "status": "UNREAD",
+      "requires_action": true,
+      "created_at": "2026-09-25T15:06:39.431Z"
+    },
+    {
+      "id": "NOTIF-ADM-1790348781284",
+      "recipient_id": 99,
+      "type": "ESCROW_DEPOSIT_PENDING",
+      "title": "💰 New Escrow Deposit Awaiting Approval",
+      "message": "Buyer \"Metro Wholesale Hub Ltd\" submitted ₹0 escrow via SIMULATED_SANDBOX (Ref: ESC-UTR-48781284) for Contract #CON-LOT-865. Please Review and Accept/Reject.",
+      "contract_id": "CON-LOT-865",
+      "time": "2026-09-25T15:06:21.284Z",
+      "status": "UNREAD",
+      "requires_action": true,
+      "created_at": "2026-09-25T15:06:21.284Z"
+    },
+    {
       "id": "NOTIF-1790093414193-524",
       "recipient_id": 1007,
       "type": "DELIVERY_AGENT_ASSIGNED",
@@ -2988,6 +3114,24 @@
     }
   ],
   "payments": [
+    {
+      "id": "PAY-ESC-1790348827042",
+      "contract_id": "CON-LOT-865",
+      "buyer_id": 1009,
+      "buyer_name": "Metro Wholesale Hub Ltd",
+      "farmer_id": 1002,
+      "farmer_name": "Arun (Lead Aggregator)",
+      "farmer_upi_id": "9133144324@ybl",
+      "gross_amount": 216000,
+      "platform_monetization_fee": 3240,
+      "net_farmer_amount": 212760,
+      "currency": "INR",
+      "payment_method": "Admin Escrow Payout to Farmer UPI/Bank",
+      "transaction_id": "ESC-SETTLE-827042",
+      "payment_status": "SETTLED_TO_FARMER",
+      "timestamp": "2026-09-25T15:07:07.042Z",
+      "verified": true
+    },
     {
       "id": "PAY-ESC-1790093414226",
       "contract_id": "CON-133",

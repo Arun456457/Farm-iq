@@ -2318,11 +2318,11 @@ async function startServer() {
     contract.escrow_utr = utr;
     contract.escrow_transaction_id = utr;
     contract.escrow_deposited_at = now;
-    if (req.body?.amount) {
-      contract.escrow_amount = Number(req.body.amount);
-      contract.admin_monetization_fee = Math.round(contract.escrow_amount * 0.015);
-      contract.net_farmer_payout = contract.escrow_amount - contract.admin_monetization_fee;
-    }
+    const computedAmt = Number(req.body?.amount) || contract.escrow_amount || contract.total_amount || ((contract.offer_price || 0) * (contract.required_quantity || 0));
+    contract.escrow_amount = computedAmt;
+    contract.total_amount = computedAmt;
+    contract.admin_monetization_fee = Math.round(computedAmt * 0.015);
+    contract.net_farmer_payout = computedAmt - contract.admin_monetization_fee;
 
     // Add notification for Admin to review and accept/reject
     if (!db.notifications) db.notifications = [];
