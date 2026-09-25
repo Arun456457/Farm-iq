@@ -1513,12 +1513,19 @@
       "assigned_farmer_name": null,
       "escrow_funded": true,
       "escrow_amount": 360000,
-      "escrow_status": "HELD_IN_ESCROW",
+      "escrow_status": "REFUNDED_TO_BUYER",
       "admin_monetization_fee": 5400,
       "net_farmer_payout": 354600,
-      "escrow_transaction_id": "ESC-TXN-102895",
+      "escrow_transaction_id": "ESC-UTR-48951938",
       "created_at": "2026-09-22T15:31:42.895Z",
-      "admin_approval_status": "APPROVED"
+      "admin_approval_status": "REJECTED",
+      "escrow_payment_mode": "SIMULATED_SANDBOX",
+      "escrow_utr": "ESC-UTR-48951938",
+      "escrow_deposited_at": "2026-09-25T15:09:11.938Z",
+      "total_amount": 360000,
+      "admin_rejection_reason": "Admin audit failure: test rejection flow",
+      "admin_rejected_at": "2026-09-25T15:09:11.987Z",
+      "refund_transaction_id": "REF-UPI-48951987"
     },
     {
       "id": "CON-LOT-344",
@@ -2388,6 +2395,32 @@
     }
   ],
   "notifications": [
+    {
+      "id": "NOTIF-REFUND-1790348951987",
+      "recipient_id": 1009,
+      "type": "ESCROW_REFUNDED",
+      "title": "↩️ Escrow Payment Rejected & Refunded",
+      "message": "Admin rejected escrow for Contract #CON-120: \"Admin audit failure: test rejection flow\". ₹3,60,000 has been refunded to your original payment source. Refund UTR: REF-UPI-48951987",
+      "contract_id": "CON-120",
+      "amount": 360000,
+      "time": "2026-09-25T15:09:11.987Z",
+      "status": "UNREAD",
+      "requires_action": false,
+      "created_at": "2026-09-25T15:09:11.987Z"
+    },
+    {
+      "id": "NOTIF-ADM-1790348951938",
+      "recipient_id": 99,
+      "type": "ESCROW_DEPOSIT_PENDING",
+      "title": "💰 New Escrow Deposit Awaiting Approval",
+      "message": "Buyer \"Metro Wholesale Hub Ltd\" submitted ₹3,60,000 escrow via SIMULATED_SANDBOX (Ref: ESC-UTR-48951938) for Contract #CON-120. Please Review and Accept/Reject.",
+      "contract_id": "CON-120",
+      "amount": 360000,
+      "time": "2026-09-25T15:09:11.938Z",
+      "status": "UNREAD",
+      "requires_action": true,
+      "created_at": "2026-09-25T15:09:11.938Z"
+    },
     {
       "id": "NOTIF-REFUND-1790348862150",
       "recipient_id": 1010,
