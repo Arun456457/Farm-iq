@@ -39,7 +39,18 @@ export default function App() {
     triggerFullPageTranslation(newLang);
   };
 
-  const [currentTab, setCurrentTab] = useState<string>('landing');
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    try {
+      const u = getStoredUser();
+      if (u) {
+        if (u.role === 'farmer') return 'my-produce';
+        if (u.role === 'admin') return 'admin-overview';
+        if (u.role === 'buyer') return 'buyer-orders';
+        return 'marketplace';
+      }
+    } catch {}
+    return 'landing';
+  });
   
   useEffect(() => {
     triggerFullPageTranslation(language);

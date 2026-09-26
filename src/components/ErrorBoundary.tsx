@@ -23,15 +23,8 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.warn('FarmiQ state self-healing triggered:', error, errorInfo);
-    // Automatically purge any corrupted session keys quietly
-    try {
-      localStorage.removeItem('farmiq_token');
-      localStorage.removeItem('farmiq_user');
-      sessionStorage.clear();
-    } catch {}
-
-    // Attempt automatic self-healing recovery once
+    console.warn('FarmiQ error recovery triggered:', error, errorInfo);
+    // Never delete user tokens or log the user out!
     if (!this.state.recovered) {
       setTimeout(() => {
         this.setState({ hasError: false, error: null, recovered: true });
@@ -40,12 +33,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   private handleEnter = () => {
-    try {
-      localStorage.removeItem('farmiq_token');
-      localStorage.removeItem('farmiq_user');
-      sessionStorage.clear();
-    } catch {}
-    window.location.href = '/';
+    window.location.reload();
   };
 
   public render() {

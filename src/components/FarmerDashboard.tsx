@@ -1227,10 +1227,10 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
                 </span>
               </div>
               <h4 className="text-base sm:text-lg font-bold text-white mt-1">
-                {c.buyer_name} Escrow Locked: ₹{c.total_amount.toLocaleString()} Vault Safe
+                {c.buyer_name || 'Verified Buyer'} Escrow Locked: ₹{Number(c.total_amount || c.escrow_amount || (Number(c.required_quantity || 0) * Number(c.offer_price || 0)) || 0).toLocaleString('en-IN')} Vault Safe
               </h4>
               <p className="text-xs text-emerald-200/90 mt-0.5">
-                Admin approved buyer's funds into ICICI Escrow. Your payment is 100% guaranteed upon dispatch of {c.quantity} {c.unit} {c.commodity}.
+                Admin approved buyer's funds into ICICI Escrow. Your payment is 100% guaranteed upon dispatch of {c.required_quantity || (c as any).quantity || 0} {c.unit} {c.crop_name || (c as any).commodity || 'produce'}.
               </p>
             </div>
           </div>
