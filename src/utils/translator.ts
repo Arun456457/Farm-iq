@@ -126,7 +126,25 @@ function scheduleDOMTranslation() {
   }
   rafHandle = requestAnimationFrame(() => {
     rafHandle = null;
-    translateDOM(activeLang);
+    if (observer) {
+      try {
+        observer.disconnect();
+      } catch {}
+    }
+    try {
+      translateDOM(activeLang);
+    } catch (e) {
+      console.warn('DOM translation error:', e);
+    } finally {
+      if (observer && typeof document !== 'undefined' && document.body) {
+        try {
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true
+          });
+        } catch {}
+      }
+    }
   });
 }
 
@@ -138,6 +156,9 @@ export function triggerFullPageTranslation(lang: LanguageCode) {
   activeLang = lang;
 
   try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.lang = lang;
+    }
     const host = window.location.hostname;
     // Clear legacy Google Translate cookies
     document.cookie = 'googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
@@ -145,21 +166,27 @@ export function triggerFullPageTranslation(lang: LanguageCode) {
     document.cookie = `googtrans=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; domain=.${host};`;
   } catch (e) {}
 
-  // Run instant synchronous sweep
-  translateDOM(lang);
+  // Run instant synchronous sweep safely
+  try {
+    translateDOM(lang);
+  } catch (e) {
+    console.warn('Initial translateDOM error:', e);
+  }
 
-  // Set up or maintain a mutation observer so that any dynamic UI, modals, or tab changes are instantly translated
+  // Set up or maintain a mutation observer so that any dynamic UI, modals, or tab changes are translated
   if (typeof MutationObserver !== 'undefined' && !observer && typeof document !== 'undefined' && document.body) {
-    observer = new MutationObserver(() => {
-      if (activeLang !== 'en') {
-        scheduleDOMTranslation();
-      }
-    });
+    try {
+      observer = new MutationObserver(() => {
+        if (activeLang !== 'en') {
+          scheduleDOMTranslation();
+        }
+      });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true
-    });
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    } catch {}
   }
 }
+

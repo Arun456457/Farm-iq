@@ -1,7 +1,6 @@
-const CACHE_NAME = 'farmiq-v2';
+const CACHE_NAME = 'farmiq-v3';
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
   '/farmiq-logo.png',
   '/pwa-192x192.png',
@@ -22,6 +21,7 @@ self.addEventListener('install', (event) => {
   );
   self.skipWaiting();
 });
+
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
