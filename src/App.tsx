@@ -94,14 +94,6 @@ export default function App() {
     const handleBeforeInstall = (e: any) => {
       e.preventDefault();
       setDeferredPrompt(e);
-      // Popup install app at first open if not dismissed in session and not installed
-      const hasDismissed = sessionStorage.getItem('farmiq_install_dismissed');
-      const isCurrentlyInstalled = localStorage.getItem('farmiq_app_installed') === 'true';
-      if (!hasDismissed && !isCurrentlyInstalled) {
-        setTimeout(() => {
-          setIsInstallModalOpen(true);
-        }, 1200);
-      }
     };
 
     const handleAppInstalled = () => {
@@ -127,17 +119,7 @@ export default function App() {
       mq.addEventListener('change', handleModeChange);
     }
 
-    // Initial popup for devices where beforeinstallprompt isn't fired automatically (e.g. iOS or browsers without event)
-    const hasDismissed = sessionStorage.getItem('farmiq_install_dismissed');
-    let timer: any = null;
-    if (!hasDismissed && !alreadyInstalled && !isStandalone) {
-      timer = setTimeout(() => {
-        setIsInstallModalOpen(true);
-      }, 1500);
-    }
-
     return () => {
-      if (timer) clearTimeout(timer);
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
       window.removeEventListener('appinstalled', handleAppInstalled);
       if (mq.removeEventListener) {

@@ -21,8 +21,15 @@ export function removeAuthToken() {
 export function getStoredUser(): User | null {
   try {
     const raw = sessionStorage.getItem('farmiq_user') || localStorage.getItem('farmiq_user');
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || !parsed.id || !parsed.role) {
+      removeAuthToken();
+      return null;
+    }
+    return parsed;
   } catch {
+    removeAuthToken();
     return null;
   }
 }

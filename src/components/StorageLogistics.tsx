@@ -200,7 +200,7 @@ export const StorageLogistics: React.FC<StorageLogisticsProps> = ({
   language,
   onOpenAuth,
 }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [activeTab, setActiveTab] = useState<'facilities' | 'my-bookings'>('facilities');
   const [bookings, setBookings] = useState<StorageBooking[]>([]);
   const [loading, setLoading] = useState(false);

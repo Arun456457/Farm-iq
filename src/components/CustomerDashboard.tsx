@@ -29,7 +29,7 @@ export const CustomerDashboard: React.FC<CustomerDashboardProps> = ({
   onOrderPlaced,
   onSubTabChange,
 }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [subTab, setSubTab] = useState<'marketplace' | 'customer-orders' | 'post-requirement' | 'disputes'>(() => {
     try {
       const saved = sessionStorage.getItem('farmiq_customer_subtab');

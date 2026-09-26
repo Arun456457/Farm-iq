@@ -34,7 +34,7 @@ export const FarmerDashboard: React.FC<FarmerDashboardProps> = ({
   onOpenInvoice,
   onSubTabChange,
 }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [subTab, setSubTab] = useState<'my-produce' | 'fpo-lots' | 'farmer-orders' | 'buyer-requirements' | 'disputes' | 'payment-settings'>(() => {
     try {
       const saved = sessionStorage.getItem('farmiq_farmer_subtab');

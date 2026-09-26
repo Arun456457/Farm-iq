@@ -16,7 +16,7 @@ export const DigitalContracts: React.FC<DigitalContractsProps> = ({
   language,
   onOpenAuth,
 }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [contracts, setContracts] = useState<DigitalContract[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);

@@ -50,7 +50,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEditProfile,
   isAppInstalled = false,
 }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isNotifOpen, setIsNotifOpen] = useState<boolean>(false);
   const [notifCount, setNotifCount] = useState<number>(0);

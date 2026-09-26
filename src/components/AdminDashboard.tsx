@@ -16,7 +16,7 @@ interface AdminDashboardProps {
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, language }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
   const [overview, setOverview] = useState<any>(null);
   const [usersList, setUsersList] = useState<User[]>([]);
   const [activeView, setActiveView] = useState<'overview' | 'requirements' | 'storage' | 'users' | 'buyers' | 'disputes' | 'escrow'>('overview');

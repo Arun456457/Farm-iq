@@ -48,7 +48,7 @@ const CATEGORIES = [
 ];
 
 export const LiveMandiRates: React.FC<LiveMandiRatesProps> = ({ language, user }) => {
-  const t = translations[language];
+  const t = translations[language] || translations.en;
 
   // Admin Crop Image Edit States
   const [editingCrop, setEditingCrop] = useState<{ crop: string; currentImage: string; variety?: string } | null>(null);
