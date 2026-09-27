@@ -546,6 +546,11 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: "25mb" }));
 
+  // FAST HEALTH CHECK FOR UPTIME & KEEP-ALIVE
+  app.get(["/healthz", "/ping"], (req, res) => {
+    res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+  });
+
   // CLOUD DATABASE & SYSTEM DIAGNOSTICS
   app.get("/api/system/db-status", (req, res) => {
     res.json(cloudDb.getStatus(db));
@@ -4135,8 +4140,40 @@ Answer warmly and concisely in simple markdown bullet points in ${langName}.`;
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+
+    // 1. Serve hashed static assets with immutable 1-year cache.
+    // If a requested hashed asset does NOT exist, return 404 immediately.
+    // DO NOT fall through to sendFile(index.html), which breaks module loading with SyntaxError!
+    app.use("/assets", express.static(path.join(distPath, "assets"), {
+      maxAge: "1y",
+      immutable: true
+    }));
+    app.use("/assets", (req, res) => {
+      res.status(404).send("Asset not found");
+    });
+
+    // 2. Serve root-level static files (favicon, manifest, logo, sw.js)
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith("index.html") || filePath.endsWith("sw.js")) {
+          // Never cache index.html or sw.js
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+        }
+      }
+    }));
+
+    // 3. Catch-all SPA fallback: ONLY serve index.html for real page routes!
+    // Reject any missing static file extensions (.js, .css, .json, .map, .png, etc.) with 404.
     app.get("*", (req, res) => {
+      const p = req.path;
+      if (p.startsWith("/assets/") || p.startsWith("/api/") || path.extname(p) !== "") {
+        return res.status(404).send("File Not Found");
+      }
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
@@ -4149,11 +4186,23 @@ Answer warmly and concisely in simple markdown bullet points in ${langName}.`;
     console.log(`  ➜ Network URL: http://127.0.0.1:${PORT}/`);
     console.log(`  ➜ Cloud DB:    ${dbStatus.provider.toUpperCase()} (${dbStatus.statusMessage})`);
     console.log(`  ======================================================`);
-    console.log(`  💡 Notice on "Connection is not secure" / "Not Secure":`);
-    console.log(`     Make sure to open with "http://" (NOT "https://").`);
-    console.log(`     Browsers flag local HTTP servers as "Not Secure" because`);
-    console.log(`     they lack an SSL certificate. This is completely safe`);
-    console.log(`     and normal for local development.\n`);
+
+    // Render Free-Tier Keep-Alive: Ping self every 10 minutes to prevent cold-start spin-down
+    const keepAliveUrl = process.env.RENDER_EXTERNAL_URL || (process.env.NODE_ENV === "production" ? "https://farmiq-z14k.onrender.com" : null);
+    if (keepAliveUrl) {
+      const pingEndpoint = `${keepAliveUrl.replace(/\/$/, "")}/healthz`;
+      console.log(`  ➜ Keep-Alive:  Active (${pingEndpoint}, every 10m)`);
+      setInterval(async () => {
+        try {
+          const resp = await fetch(pingEndpoint);
+          if (resp.ok) {
+            console.log(`[KeepAlive] Pinged ${pingEndpoint} (${resp.status})`);
+          }
+        } catch (err: any) {
+          console.warn(`[KeepAlive] Ping failed:`, err?.message || err);
+        }
+      }, 10 * 60 * 1000);
+    }
   });
 }
 
